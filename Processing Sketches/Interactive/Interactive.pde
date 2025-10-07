@@ -1,6 +1,8 @@
 import processing.sound.*;
 
 PShader shader;
+int output_width = 1280;
+int output_height = 720;
 
 InputAnalyzer hang;
 InputAnalyzer bodhran;
@@ -19,72 +21,93 @@ float hangAmplitude = 0.0;
 float kalimbaAmplitude = 0.0;
 float bodhranAmplitude = 0.0;
 
-// Wall dimensions for projection: 361" x 144" - projector location? distance back?
+float[] testColor = {
+  13.0 / 255.0,
+  66.0 / 255.0,
+  202.0 / 255.0
+};
 
-void setup(){
+// Wall dimensions for projection: 361"   x 144" - projector location? distance back?
+
+void setup() {
   //fullScreen(P2D);
   size(1280, 720, P2D);
   noiseDetail(7, 0.5);
   noStroke();
-  
+
   // Load and compile shader
   shader = loadShader("shader.frag");
   // We only have to set this once
-  shader.set("u_resolution", float(width), float(height));
-  
+  shader.set("u_resolution", float(output_width), float(output_height));
+
   try {
     Sound s = new Sound(this);
     String device = "Scarlett 18i8 USB";
     s.inputDevice(device);
-  } catch(Exception e){
+  }
+  catch(Exception e) {
     print("While initializing Sound Object: " + e);
     exit();
   }
 
-  bodhran = new InputAnalyzer(this, 0, 2048, 1024);  
+  bodhran = new InputAnalyzer(this, 0, 2048, 1024);
   hang = new InputAnalyzer(this, 1, 2048, 1024);
   kalimba = new InputAnalyzer(this, 2, 2048, 1024);
 }
 
-void draw(){
+void draw() {
   //read analyzers
-  hangAmplitude = hang.getAmplitude();
-  hangOffset += hangAmplitude;
-  
-  bodhranAmplitude = bodhran.getAmplitude();
+
+  bodhranAmplitude = 4.0 * bodhran.getAmplitude();
   bodhranOffset += bodhranAmplitude;
-  
-  kalimbaAmplitude = kalimba.getAmplitude();
+
+  hangAmplitude = 4.0 * hang.getAmplitude();
+  hangOffset += hangAmplitude;
+
+  kalimbaAmplitude = 4.0 * kalimba.getAmplitude();
   kalimbaOffset += kalimbaAmplitude;
-  
+
   // Set uniforms
   shader.set("u_mouse", mouseX/float(width), mouseY/float(height));
-  shader.set("u_time", millis() / 1000.0);
+  shader.set("u_time", millis() * 0.0001);
   shader.set("u_offset", kalimbaOffset);
-  
+
+  shader.set("u_gain1", 2 * noise(1, sin(2 * PI * frameCount / 1000.0)));
+  shader.set("u_gain2", 2 * noise(2, sin(2 * PI * frameCount / 1000.0)));
+  shader.set("u_gain3", 2 * noise(3, sin(2 * PI * frameCount / 1000.0)));
+  shader.set("u_pedistal1", 0.5);
+  shader.set("u_pedistal2", 0.5);
+  shader.set("u_pedistal3", 0.5);
+  shader.set("u_colorTest", testColor);
+
   shader(shader);
-  rect(0, 0, width, height);
+  quad(
+    0, (height - output_height)*0.5,
+    width, (height - output_height)*0.5,
+    width, output_height + (height - output_height)*0.5,
+    0, output_height + (height - output_height)*0.5
+  );
   
   pixelsort();
 }
 
-void pixelsort(){
+void pixelsort() {
   loadPixels();
 
   int[] column = new int[height];
   int amount;
-  
-  for(int x = 0; x < width; x++){
-    for(int y = 0; y < height; y++){
+
+  for (int x = 0; x < width; x++) {
+    for (int y = 0; y < height; y++) {
       column[y] = pixels[y * width + x];
     }
     column = sort(column);
     amount = round(50 * hangAmplitude * column.length * (noise(
       0.1 * x,
       0.125 * height * hangOffset)-0.5
-    ));
+      ));
     column = shift(column, amount);
-    for(int y = 0; y < height; y++){
+    for (int y = 0; y < height; y++) {
       pixels[y * width + x] = column[y];
     }
   }
@@ -92,10 +115,10 @@ void pixelsort(){
   updatePixels();
 }
 
-int[] shift(int[] array, int amount){
+int[] shift(int[] array, int amount) {
   int[] shifted = new int[array.length];
   int j = 0;
-  for(int i = 0; i < shifted.length; i++){
+  for (int i = 0; i < shifted.length; i++) {
     j = (i + amount) % array.length;
     shifted[i] = array[j < 0 ? j + array.length : j];
   }

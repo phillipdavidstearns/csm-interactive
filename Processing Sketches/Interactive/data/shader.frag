@@ -16,7 +16,7 @@ uniform float u_gain3;
 uniform float u_pedistal1;
 uniform float u_pedistal2;
 uniform float u_pedistal3;
-
+uniform float u_colorTest[3];
 
 
 // By Morgan McGuire @morgan3d, http://graphicscodex.com
@@ -125,20 +125,25 @@ float fbm(vec3 x) {
 
 void main() {
 
-	vec2 st = gl_FragCoord.xy/u_resolution.xy;
+	vec2 st = vec2(gl_FragCoord.x/u_resolution.x, gl_FragCoord.y/u_resolution.x);
 
     // Scale the coordinate system to see
     // some noise in action
     vec3 pos = vec3(st*5.0, u_offset);
 
-    vec4 color1 = vec4 (13.0 / 255.0, 66.0 / 255.0, 202.0 / 255.0, 1.0);
+    vec4 color1 = vec4 (u_colorTest[0], u_colorTest[1], u_colorTest[2], 1.0);
+    //vec4 color1 = vec4 (13.0 / 255.0, 66.0 / 255.0, 202.0 / 255.0, 1.0);
     vec4 color2 = vec4 (193.0 / 255.0, 48.0 / 255.0, 11.0 / 255.0, 1.0);
     vec4 color3 = vec4 (237.0 / 255.0, 215.0 / 255.0, 110.0 / 255.0, 1.0);
     vec4 backgroundColor = vec4( 140.0 / 255.0, 157.0 / 255.0, 184.0 / 255.0, 1.0);
 
-    vec4 layer1 = mix(backgroundColor, color1, clamp(u_gain1 * NOISE(pos + vec3(0, 0, 1 + u_time)) - u_gain1 + u_pedistal1, 0.0, 1.0));
-    vec4 layer2 = mix(layer1, color2, clamp(u_gain2 * NOISE(pos + vec3(0, 0, 2 + u_time)) - u_gain2 + u_pedistal2, 0.0, 1.0));
-    vec4 layer3 = mix(layer2, color3, clamp(u_gain3 * NOISE(pos + vec3(0, 0, 3 + u_time)) - u_gain3 + u_pedistal3, 0.0, 1.0)); 
+    float mixAmount1 = clamp(u_gain1 * NOISE(pos + vec3(0, 0, 1 + u_time)) - u_gain1 + u_pedistal1, 0.0, 1.0);
+	float mixAmount2 = clamp(u_gain2 * NOISE(pos + vec3(0, 0, 2 + u_time)) - u_gain2 + u_pedistal2, 0.0, 1.0);
+	float mixAmount3 = clamp(u_gain3 * NOISE(pos + vec3(0, 0, 3 + u_time)) - u_gain3 + u_pedistal3, 0.0, 1.0);
+
+    vec4 layer1 = mix(backgroundColor, color1, mixAmount1);
+    vec4 layer2 = mix(layer1, color2, mixAmount2);
+    vec4 layer3 = mix(layer2, color3, mixAmount3); 
 
 	gl_FragColor = layer3;
 }
