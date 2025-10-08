@@ -149,9 +149,9 @@ void main() {
 	float mixAmount3 = clamp(u_gain3 * NOISE(pos + vec3(0, 0, 3 + u_time)) - u_gain3 + u_pedistal3, 0.0, 1.0);
 	float mixAmount4 = clamp(u_gain4 * NOISE(pos + vec3(0, 0, 3 + u_time)) - u_gain4 + u_pedistal4, 0.0, 1.0);
 
-	vec4 layer1 = mix(backgroundColor, color1, mixAmount1);
+	vec4 layer1 = mix(backgroundColor, color1, mixAmount1);	
 	vec4 layer2 = mix(layer1, color2, mixAmount2);
-	vec4 layer3 = mix(layer2, color3, mixAmount3); 
+	vec4 layer3 = mix(layer2, color3, mixAmount3);
 	vec4 layer4 = mix(layer3, color, mixAmount4 > 0.5 ? 1.0 : 0.0);
 
 	gl_FragColor = layer4;
