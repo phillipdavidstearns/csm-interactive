@@ -1,8 +1,7 @@
 import processing.sound.*;
 
 PShader shader;
-int output_width = 1280;
-int output_height = 720;
+PGraphics pg;
 
 InputAnalyzer hang;
 InputAnalyzer bodhran;
@@ -21,13 +20,10 @@ float hangAmplitude = 0.0;
 float kalimbaAmplitude = 0.0;
 float bodhranAmplitude = 0.0;
 
-float[] testColor = {
-  13.0 / 255.0,
-  66.0 / 255.0,
-  202.0 / 255.0
-};
-
-// Wall dimensions for projection: 361"   x 144" - projector location? distance back?
+// Wall dimensions: 361" x 144" - projector location? distance back?
+// Projector Aspect Ratio: 16:9
+// Distance between projection wall and rear wall: 17' 5" (209")
+// Max Projection Dimensions (16:9): 256" x 144" (~294" diagonal)
 
 void setup() {
   //fullScreen(P2D);
@@ -38,8 +34,9 @@ void setup() {
   // Load and compile shader
   shader = loadShader("shader.frag");
   // We only have to set this once
-  shader.set("u_resolution", float(output_width), float(output_height));
-
+  shader.set("u_resolution", float(width), float(height));
+  pg = createGraphics(width, height, P2D);
+  shader.set("u_texture", pg);
   try {
     Sound s = new Sound(this);
     String device = "Scarlett 18i8 USB";
@@ -68,27 +65,66 @@ void draw() {
   kalimbaOffset += kalimbaAmplitude;
 
   // Set uniforms
-  shader.set("u_mouse", mouseX/float(width), mouseY/float(height));
+  shader.set("u_texture", pg);
+  //shader.set("u_mouse", mouseX/float(width), mouseY/float(height));
   shader.set("u_time", millis() * 0.0001);
   shader.set("u_offset", kalimbaOffset);
-
-  shader.set("u_gain1", 2 * noise(1, sin(2 * PI * frameCount / 1000.0)));
-  shader.set("u_gain2", 2 * noise(2, sin(2 * PI * frameCount / 1000.0)));
-  shader.set("u_gain3", 2 * noise(3, sin(2 * PI * frameCount / 1000.0)));
+  shader.set("u_zoom", 1 * noise(1, sin(2 * PI * frameCount / 12000.0)));
+  shader.set("u_gain1", 2 * noise(1, sin(2 * PI * frameCount / 13000.0)));
+  shader.set("u_gain2", 2 * noise(2, sin(2 * PI * frameCount / 14000.0)));
+  shader.set("u_gain3", 2 * noise(3, sin(2 * PI * frameCount / 15000.0)));
+  shader.set("u_gain4", 2 * noise(4, sin(2 * PI * frameCount / 16000.0)));
   shader.set("u_pedistal1", 0.5);
   shader.set("u_pedistal2", 0.5);
   shader.set("u_pedistal3", 0.5);
-  shader.set("u_colorTest", testColor);
+  shader.set("u_pedistal4", 0.5);
+  shader.set("u_colorTest", new float[]{
+    13.0 / 255.0,
+    66.0 / 255.0,
+    202.0 / 255.0
+    });
 
-  shader(shader);
-  quad(
-    0, (height - output_height)*0.5,
-    width, (height - output_height)*0.5,
-    width, output_height + (height - output_height)*0.5,
-    0, output_height + (height - output_height)*0.5
-  );
-  
-  pixelsort();
+  pg.beginDraw();
+  pg.shader(shader);
+  pg.rect(0, 0, width, height);
+  //pg.textAlign(CENTER);
+  //pg.textSize(72);
+  //pg.text(frameCount, width/2.0, height/2.0);
+  pg.endDraw();
+  pixelsort(pg);  
+  image(pg, 0, 0);
+  stroke(255);
+  //line(0, height/2.0, width, height/2.0);
+  //line(width/2.0, 0, width/2.0, height);
+
+
+  //pixelsort();
+}
+
+void pixelsort(PGraphics _pg) {
+  _pg.beginDraw();
+  _pg.loadPixels();
+
+  int[] column = new int[_pg.height];
+  int amount;
+
+  for (int x = 0; x < _pg.width; x++) {
+    for (int y = 0; y < _pg.height; y++) {
+      column[y] = _pg.pixels[y * _pg.width + x];
+    }
+    column = sort(column);
+    amount = round(50 * hangAmplitude * column.length * (noise(
+      0.1 * x,
+      0.125 * _pg.height * hangOffset)-0.5
+      ));
+    column = shift(column, amount);
+    for (int y = 0; y < _pg.height; y++) {
+      _pg.pixels[y * _pg.width + x] = column[y];
+    }
+  }
+
+  _pg.updatePixels();
+  _pg.endDraw();
 }
 
 void pixelsort() {
