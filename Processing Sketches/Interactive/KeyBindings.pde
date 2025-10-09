@@ -1,7 +1,10 @@
 void keyPressed() {
   switch(key) {
   case ' ':
-    activePalette = palettes.get(int(random(palettes.size())));
+    activePaletteA = palettes.get(int(random(palettes.size())));
+    activePaletteA.randomizePastels();
+    activePaletteB = palettes.get(int(random(palettes.size())));
+    activePaletteB.randomizePastels();
     break;
   case 's':
     sortShader = !sortShader; // toggle pixel sorting for just the shader

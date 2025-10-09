@@ -1,12 +1,34 @@
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
 class Palette {
   String name;
   float[] background;
   float[][] pastels;
 
+  Palette() {
+    this.name = "";
+    this.background = new float[]{};
+    this.pastels = new float[][]{};
+  }
+
   Palette(String _name, float[] _background, float[][] _pastels) {
     this.name = _name;
     this.background = _background;
     this.pastels = _pastels;
+  }
+
+  float[][] randomizePastels() {
+    ArrayList<float[]> temp = new ArrayList<float[]>(this.pastels.length);
+    for (int i = 0; i < this.pastels.length; i++) {
+      temp.add(this.pastels[i]);
+    }
+    //Collections.shuffle(temp);
+    for (int i = 0; i < temp.size(); i++) {
+      this.pastels[i] = temp.get(i);
+    }
+    return this.pastels;
   }
 
   float[] getFlattenedPalette() {
