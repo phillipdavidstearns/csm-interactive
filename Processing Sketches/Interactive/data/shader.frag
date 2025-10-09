@@ -19,8 +19,9 @@ uniform float u_pedistal1;
 uniform float u_pedistal2;
 uniform float u_pedistal3;
 uniform float u_pedistal4;
-uniform float u_colorTest[3];
-
+uniform vec4 u_background;
+uniform vec4 u_palette[8];
+uniform int u_paletteLength;
 
 // By Morgan McGuire @morgan3d, http://graphicscodex.com
 // Reuse permitted under the BSD license.
@@ -98,7 +99,6 @@ float fbm(float x) {
 	return v;
 }
 
-
 float fbm(vec2 x) {
 	float v = 0.0;
 	float a = 0.5;
@@ -113,7 +113,6 @@ float fbm(vec2 x) {
 	return v;
 }
 
-
 float fbm(vec3 x) {
 	float v = 0.0;
 	float a = 0.5;
@@ -127,32 +126,26 @@ float fbm(vec3 x) {
 }
 
 void main() {
-	vec4 color = vec4(0.0);
+	vec4 feedback = vec4(0.0);
 	vec2 st = gl_FragCoord.xy/u_resolution.xy;
     vec2 u_zoomCenter = vec2(0.5);
 	// Scale the coordinate system to see
 	// some noise in action
 	vec2 zoomedUV = (st - u_zoomCenter) * u_zoom + u_zoomCenter;
     //gl_FragColor = texture2D(u_texture, zoomedUV);
-	color = texture2D(u_texture, zoomedUV);
+	feedback = texture2D(u_texture, zoomedUV);
 
 	vec3 pos = vec3(st*5.0, u_offset);
 
-	vec4 color1 = vec4 (u_colorTest[0], u_colorTest[1], u_colorTest[2], 1.0);
-	//vec4 color1 = vec4 (13.0 / 255.0, 66.0 / 255.0, 202.0 / 255.0, 1.0);
-	vec4 color2 = vec4 (193.0 / 255.0, 48.0 / 255.0, 11.0 / 255.0, 1.0);
-	vec4 color3 = vec4 (237.0 / 255.0, 215.0 / 255.0, 110.0 / 255.0, 1.0);
-	vec4 backgroundColor = vec4( 140.0 / 255.0, 157.0 / 255.0, 184.0 / 255.0, 1.0);
-
-	float mixAmount1 = clamp(u_gain1 * NOISE(pos + vec3(0, 0, 1 + u_time)) - u_gain1 + u_pedistal1, 0.0, 1.0);
+    float mixAmount1 = clamp(u_gain1 * NOISE(pos + vec3(0, 0, 1 + u_time)) - u_gain1 + u_pedistal1, 0.0, 1.0);
 	float mixAmount2 = clamp(u_gain2 * NOISE(pos + vec3(0, 0, 2 + u_time)) - u_gain2 + u_pedistal2, 0.0, 1.0);
 	float mixAmount3 = clamp(u_gain3 * NOISE(pos + vec3(0, 0, 3 + u_time)) - u_gain3 + u_pedistal3, 0.0, 1.0);
 	float mixAmount4 = clamp(u_gain4 * NOISE(pos + vec3(0, 0, 3 + u_time)) - u_gain4 + u_pedistal4, 0.0, 1.0);
 
-	vec4 layer1 = mix(backgroundColor, color1, mixAmount1);	
-	vec4 layer2 = mix(layer1, color2, mixAmount2);
-	vec4 layer3 = mix(layer2, color3, mixAmount3);
-	vec4 layer4 = mix(layer3, color, mixAmount4 > 0.5 ? 1.0 : 0.0);
+	vec4 layer1 = mix(u_background, u_palette[0], mixAmount1);	
+	vec4 layer2 = mix(layer1, u_palette[1], mixAmount2);
+	vec4 layer3 = mix(layer2, u_palette[2], mixAmount3);
+	vec4 layer4 = mix(layer3, feedback, mixAmount4 > 0.5 ? 1.0 : 0.0);
 
 	gl_FragColor = layer4;
 }

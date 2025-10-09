@@ -25,18 +25,26 @@ float bodhranAmplitude = 0.0;
 // Distance between projection wall and rear wall: 17' 5" (209")
 // Max Projection Dimensions (16:9): 256" x 144" (~294" diagonal)
 
+ArrayList<Palette> palettes;
+Palette activePalette;
+
 void setup() {
+  pixelDensity(1);
   //fullScreen(P2D);
   size(1280, 720, P2D);
   noiseDetail(7, 0.5);
   noStroke();
 
+  loadPalettes();
+  activePalette = palettes.get(int(random(palettes.size())));
+
   // Load and compile shader
   shader = loadShader("shader.frag");
-  // We only have to set this once
+  // We only have to set resolution once
   shader.set("u_resolution", float(width), float(height));
   pg = createGraphics(width, height, P2D);
   shader.set("u_texture", pg);
+
   try {
     Sound s = new Sound(this);
     String device = "Scarlett 18i8 USB";
@@ -44,7 +52,7 @@ void setup() {
   }
   catch(Exception e) {
     print("While initializing Sound Object: " + e);
-    exit();
+    //exit();
   }
 
   bodhran = new InputAnalyzer(this, 0, 2048, 1024);
@@ -78,11 +86,8 @@ void draw() {
   shader.set("u_pedistal2", 0.5);
   shader.set("u_pedistal3", 0.5);
   shader.set("u_pedistal4", 0.5);
-  shader.set("u_colorTest", new float[]{
-    13.0 / 255.0,
-    66.0 / 255.0,
-    202.0 / 255.0
-    });
+
+  setShaderColors();
 
   pg.beginDraw();
   pg.shader(shader);
@@ -97,8 +102,6 @@ void draw() {
   //line(0, height/2.0, width, height/2.0);
   //line(width/2.0, 0, width/2.0, height);
 
-
-  //pixelsort();
 }
 
 void pixelsort(PGraphics _pg) {
@@ -149,6 +152,12 @@ void pixelsort() {
   }
 
   updatePixels();
+}
+
+void setShaderColors(){
+  shader.set("u_background", activePalette.background[0], activePalette.background[1], activePalette.background[2], 1.0);
+  shader.set("u_palette", activePalette.getFlattenedPalette(), 4);
+  shader.set("u_paletteLength", activePalette.pastels.length);
 }
 
 int[] shift(int[] array, int amount) {
