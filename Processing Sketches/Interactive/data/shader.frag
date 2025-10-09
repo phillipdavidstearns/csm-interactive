@@ -127,20 +127,20 @@ float fbm(vec3 x) {
 
 void main() {
 	vec4 feedback = vec4(0.0);
-	vec2 st = gl_FragCoord.xy/u_resolution.xy;
+	vec2 uv = gl_FragCoord.xy/u_resolution.xy;
     vec2 u_zoomCenter = vec2(0.5);
+	vec2 zoomedUV = (uv - u_zoomCenter) * u_zoom + u_zoomCenter;
+    feedback = texture2D(u_texture, zoomedUV);
+
 	// Scale the coordinate system to see
-	// some noise in action
-	vec2 zoomedUV = (st - u_zoomCenter) * u_zoom + u_zoomCenter;
-    //gl_FragColor = texture2D(u_texture, zoomedUV);
-	feedback = texture2D(u_texture, zoomedUV);
+    // some noise in action
+    vec2 st = vec2(gl_FragCoord.x/u_resolution.x, gl_FragCoord.y/u_resolution.x);
+    vec3 pos = vec3(st*5.0, u_offset);
 
-	vec3 pos = vec3(st*5.0, u_offset);
-
-    float mixAmount1 = clamp(u_gain1 * NOISE(pos + vec3(0, 0, 1 + u_time)) - u_gain1 + u_pedistal1, 0.0, 1.0);
-	float mixAmount2 = clamp(u_gain2 * NOISE(pos + vec3(0, 0, 2 + u_time)) - u_gain2 + u_pedistal2, 0.0, 1.0);
-	float mixAmount3 = clamp(u_gain3 * NOISE(pos + vec3(0, 0, 3 + u_time)) - u_gain3 + u_pedistal3, 0.0, 1.0);
-	float mixAmount4 = clamp(u_gain4 * NOISE(pos + vec3(0, 0, 3 + u_time)) - u_gain4 + u_pedistal4, 0.0, 1.0);
+    float mixAmount1 = clamp(u_gain1 * NOISE(pos + vec3(0, 0, 1 + u_time)) + u_pedistal1, 0.0, 1.0);
+	float mixAmount2 = clamp(u_gain2 * NOISE(pos + vec3(0, 0, 2 + u_time)) + u_pedistal2, 0.0, 1.0);
+	float mixAmount3 = clamp(u_gain3 * NOISE(pos + vec3(0, 0, 3 + u_time)) + u_pedistal3, 0.0, 1.0);
+	float mixAmount4 = clamp(u_gain4 * NOISE(pos + vec3(0, 0, 4 + u_time)) + u_pedistal4, 0.0, 1.0);
 
 	vec4 layer1 = mix(u_background, u_palette[0], mixAmount1);	
 	vec4 layer2 = mix(layer1, u_palette[1], mixAmount2);

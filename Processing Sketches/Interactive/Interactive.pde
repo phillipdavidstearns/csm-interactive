@@ -3,6 +3,11 @@ import processing.sound.*;
 PShader shader;
 PGraphics pg;
 
+boolean sortShader = false;
+boolean sortFeedback = false;
+boolean reverseShaderSort = false;
+boolean reverseFeedbackSort = false;
+
 InputAnalyzer hang;
 InputAnalyzer bodhran;
 InputAnalyzer kalimba;
@@ -72,39 +77,45 @@ void draw() {
   kalimbaAmplitude = 4.0 * kalimba.getAmplitude();
   kalimbaOffset += kalimbaAmplitude;
 
+  float zoomFactor = 2 * noise(0.1, sin(2 * PI * frameCount / 12000.0));
+
   // Set uniforms
   shader.set("u_texture", pg);
   //shader.set("u_mouse", mouseX/float(width), mouseY/float(height));
   shader.set("u_time", millis() * 0.0001);
   shader.set("u_offset", kalimbaOffset);
-  shader.set("u_zoom", 1 * noise(1, sin(2 * PI * frameCount / 12000.0)));
-  shader.set("u_gain1", 2 * noise(1, sin(2 * PI * frameCount / 13000.0)));
-  shader.set("u_gain2", 2 * noise(2, sin(2 * PI * frameCount / 14000.0)));
-  shader.set("u_gain3", 2 * noise(3, sin(2 * PI * frameCount / 15000.0)));
-  shader.set("u_gain4", 2 * noise(4, sin(2 * PI * frameCount / 16000.0)));
-  shader.set("u_pedistal1", 0.5);
-  shader.set("u_pedistal2", 0.5);
-  shader.set("u_pedistal3", 0.5);
-  shader.set("u_pedistal4", 0.5);
+  shader.set("u_zoom", zoomFactor);
+  shader.set("u_gain1", 4 * noise(0.2, sin(2 * PI * frameCount / 13000.0)));
+  shader.set("u_gain2", 4 * noise(0.3, sin(2 * PI * frameCount / 14000.0)));
+  shader.set("u_gain3", 4 * noise(0.4, sin(2 * PI * frameCount / 15000.0)));
+  shader.set("u_gain4", 4.0);
+  shader.set("u_pedistal1", -1.0);
+  shader.set("u_pedistal2", -1.0);
+  shader.set("u_pedistal3", -1.0);
+  shader.set("u_pedistal4", -2.0);
 
   setShaderColors();
 
+  if (sortFeedback) pixelsort(pg, reverseFeedbackSort);
   pg.beginDraw();
   pg.shader(shader);
   pg.rect(0, 0, width, height);
   //pg.textAlign(CENTER);
   //pg.textSize(72);
-  //pg.text(frameCount, width/2.0, height/2.0);
+  //pg.text(zoomFactor, width/2.0, height/2.0);
   pg.endDraw();
-  pixelsort(pg);  
+  if (sortShader) pixelsort(pg, reverseShaderSort);
+
   image(pg, 0, 0);
-  stroke(255);
+
+  // draw white crosshairs
+  //stroke(255);
   //line(0, height/2.0, width, height/2.0);
   //line(width/2.0, 0, width/2.0, height);
-
 }
 
-void pixelsort(PGraphics _pg) {
+// pixelsorting for off-screen rendering contexts
+void pixelsort(PGraphics _pg, boolean reverse) {
   _pg.beginDraw();
   _pg.loadPixels();
 
@@ -116,6 +127,7 @@ void pixelsort(PGraphics _pg) {
       column[y] = _pg.pixels[y * _pg.width + x];
     }
     column = sort(column);
+    if (reverse) column = reverse(column);
     amount = round(50 * hangAmplitude * column.length * (noise(
       0.1 * x,
       0.125 * _pg.height * hangOffset)-0.5
@@ -130,7 +142,8 @@ void pixelsort(PGraphics _pg) {
   _pg.endDraw();
 }
 
-void pixelsort() {
+// pixelsorting on the main rendering chain
+void pixelsort(boolean reverse) {
   loadPixels();
 
   int[] column = new int[height];
@@ -141,6 +154,7 @@ void pixelsort() {
       column[y] = pixels[y * width + x];
     }
     column = sort(column);
+    if (reverse) column = reverse(column);
     amount = round(50 * hangAmplitude * column.length * (noise(
       0.1 * x,
       0.125 * height * hangOffset)-0.5
@@ -154,12 +168,6 @@ void pixelsort() {
   updatePixels();
 }
 
-void setShaderColors(){
-  shader.set("u_background", activePalette.background[0], activePalette.background[1], activePalette.background[2], 1.0);
-  shader.set("u_palette", activePalette.getFlattenedPalette(), 4);
-  shader.set("u_paletteLength", activePalette.pastels.length);
-}
-
 int[] shift(int[] array, int amount) {
   int[] shifted = new int[array.length];
   int j = 0;
@@ -168,4 +176,10 @@ int[] shift(int[] array, int amount) {
     shifted[i] = array[j < 0 ? j + array.length : j];
   }
   return shifted;
+}
+
+void setShaderColors() {
+  shader.set("u_background", activePalette.background[0], activePalette.background[1], activePalette.background[2], 1.0);
+  shader.set("u_palette", activePalette.getFlattenedPalette(), 4);
+  shader.set("u_paletteLength", activePalette.pastels.length);
 }

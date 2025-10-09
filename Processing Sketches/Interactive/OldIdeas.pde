@@ -10,7 +10,7 @@
 //    pixels[y * width + x] = row[x];
 //  }
 //}
-  
+
 // void draw1DNoise(){
 //  noiseDetail(3, 0.25);
 //  beginShape();
@@ -30,20 +30,20 @@
 //  textSize(120);
 //  text("PITCH: " + hang.getPitch(), 0, height/3);
 //  text("AMP: " + nf(hang.getAmplitude(),2,2), 0, 2*height/3);
-//  background(hang.isBeat() ? 255 : 0);  
+//  background(hang.isBeat() ? 255 : 0);
 //  draw1DNoise();
 //}
 
 //3D Perlin Noise => 2D RGB colorfield
-  //for(int y = 0; y < height; y++){
-  //  for(int x = 0; x < width; x++){
-  //    pixels[y * width + x] = color(
-  //      colorChannelNoise3D(x, y, kalimbaOffset, rOffset),
-  //      colorChannelNoise3D(x, y, kalimbaOffset, gOffset),
-  //      colorChannelNoise3D(x, y, kalimbaOffset, bOffset)
-  //    );
-  //  }
-  //}
+//for(int y = 0; y < height; y++){
+//  for(int x = 0; x < width; x++){
+//    pixels[y * width + x] = color(
+//      colorChannelNoise3D(x, y, kalimbaOffset, rOffset),
+//      colorChannelNoise3D(x, y, kalimbaOffset, gOffset),
+//      colorChannelNoise3D(x, y, kalimbaOffset, bOffset)
+//    );
+//  }
+//}
 
 //int colorChannelNoise3D(float x, float y, float z, float offset){
 //  return round( 255 * noise(
