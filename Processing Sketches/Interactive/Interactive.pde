@@ -4,6 +4,7 @@ PShader shader;
 PGraphics pg;
 
 boolean sortShader = false;
+boolean shiftShader = false;
 boolean sortFeedback = false;
 boolean reverseShaderSort = false;
 boolean reverseFeedbackSort = false;
@@ -22,6 +23,8 @@ float bodhranAmplitude = 0.0;
 
 float blend = 0.0;
 float rate = 0.001;
+int blendStart = 0;
+int blendDuration = 1200;
 
 // Wall dimensions: 361" x 144" - projector location? distance back?
 // Projector Aspect Ratio: 16:9
@@ -38,6 +41,7 @@ void setup() {
   pixelDensity(1);
   fullScreen(P2D, 2);
   size(1280, 720, P2D);
+  frameRate(30);
   noiseDetail(7, 0.5);
   noStroke();
 
@@ -68,6 +72,8 @@ void setup() {
   bodhran = new InputAnalyzer(this, 0, 2048, 1024);
   hang = new InputAnalyzer(this, 1, 2048, 1024);
   kalimba = new InputAnalyzer(this, 2, 2048, 1024);
+
+  blendStart = frameCount;
 }
 
 void draw() {
@@ -82,16 +88,15 @@ void draw() {
   kalimbaAmplitude = kalimba.getAmplitude();
   kalimbaOffset += kalimbaAmplitude;
 
-  float zoomFactor = noise(0.1, sin(2 * PI * frameCount / 12000.0));
-  float noiseZoomFactor = 2.5 * noise(0.1, sin(2 * PI * frameCount / 11000.0)) + 2.5;
+  //float feedbackZoomFactor = noise(0.1, sin(2 * PI * frameCount / 10000.0));
+  //float noiseZoomFactor = 2.5 * noise(0.2, sin(2 * PI * frameCount / 11000.0)) + 2.5;
 
-  float gain1 = 10.0 * bodhranAmplitude + 0.75;
-  float gain2 = 10.0 * hangAmplitude + 0.75;
-  float gain3 = 10.0 * kalimbaAmplitude + 0.75;
+  float feedbackZoomFactor = 1.0 - noise(1, (bodhranAmplitude+hangAmplitude+kalimbaAmplitude)/3);
+  float noiseZoomFactor = 2.5 * noise(2, (bodhranOffset+hangOffset+kalimbaOffset)/3) + 2.5;
 
-  //float gain1 = 1.0;
-  //float gain2 = 1.0;
-  //float gain3 = 1.0;
+  float gain1 = 5.0 * bodhranAmplitude;
+  float gain2 = 5.0 * hangAmplitude;
+  float gain3 = 5.0 * kalimbaAmplitude;
 
   // Set uniforms
   shader.set("u_texture", pg);
@@ -99,39 +104,44 @@ void draw() {
   shader.set("u_offset1", bodhranOffset);
   shader.set("u_offset2", hangOffset);
   shader.set("u_offset3", kalimbaOffset);
-  shader.set("u_feedbackZoom", zoomFactor);
+  shader.set("u_feedbackZoom", feedbackZoomFactor);
   shader.set("u_noiseZoom", noiseZoomFactor);
   shader.set("u_gain1", gain1);
   shader.set("u_gain2", gain2);
   shader.set("u_gain3", gain3);
-  //shader.set("u_gain1", 5 * bodhranAmplitude * noise(0.2, sin(2 * PI * frameCount / 13000.0)));
-  //shader.set("u_gain2", 5 * hangAmplitude * noise(0.3, sin(2 * PI * frameCount / 14000.0)));
-  //shader.set("u_gain3", 5 * kalimbaAmplitude * noise(0.4, sin(2 * PI * frameCount / 15000.0)));
-  shader.set("u_gain4", 1.0);
-  shader.set("u_pedistal1", 0.0);
-  shader.set("u_pedistal2", 0.0);
-  shader.set("u_pedistal3", 0.0);
+  shader.set("u_gain4", 0.0);
+  shader.set("u_pedistal1", 0.25);
+  shader.set("u_pedistal2", 0.25);
+  shader.set("u_pedistal3", 0.25);
   shader.set("u_pedistal4", 0.0);
 
   setShaderColors();
 
-  if (sortFeedback) pixelsort(pg, reverseFeedbackSort);
+  // if (sortFeedback) pixelsort(pg, reverseFeedbackSort);
   pg.beginDraw();
   pg.shader(shader);
   pg.rect(0, 0, width, height);
-  //pg.textAlign(CENTER);
-  //pg.textSize(72);
-  //pg.text(zoomFactor, width/2.0, height/2.0);
   pg.endDraw();
-  if (sortShader) pixelsort(pg, reverseShaderSort);
+
+  processPixels(pg);
 
   image(pg, 0, 0);
   fill(255);
   text("bodhran: " + gain1, 100, 50);
   text("hang pan: " + gain2, 100, 80);
   text("kalimba: " + gain3, 100, 110);
+  text("frameCount: " + frameCount, 100, 140);
+  text("blendStart: " + blendStart, 100, 170);
+  text("blendDuration: " + blendDuration, 100, 200);
+  text("blend: " + blend, 100, 230);
+
+
+  text("bodhranOffset: " + bodhranOffset, 250, 50);
+  text("hangOffset: " + hangOffset, 250, 80);
+  text("kalimbaOffset: " + kalimbaOffset, 250, 110);
 
   noStroke();
+
   fill(
     round(mixedPalette.background[0]*255),
     round(mixedPalette.background[1]*255),
@@ -147,17 +157,71 @@ void draw() {
     square(20, 80+(i*30), 30);
   }
 
+  updateBlend();
+
   // draw white crosshairs
   //stroke(255);
   //line(0, height/2.0, width, height/2.0);
   //line(width/2.0, 0, width/2.0, height);
-  blend=sin(2*PI*frameCount*rate)*sin(2*PI*frameCount*rate);
+}
+
+void processPixels(PGraphics _pg) {
+  if (sortShader ==false &&
+    shiftShader == false &&
+    sortFeedback == false &&
+    reverseShaderSort == false &&
+    reverseFeedbackSort == false) return;
+
+  _pg.beginDraw();
+  _pg.loadPixels();
+  int[] column = new int[_pg.height];
+
+  for (int x = 0; x < _pg.width; x++) {
+    for (int y = 0; y < _pg.height; y++) {
+      column[y] = _pg.pixels[y * _pg.width + x];
+    }
+
+    if (sortShader) {
+      column = sort(column);
+      if (reverseShaderSort) column = reverse(column);
+    }
+
+    if (shiftShader) {
+      int amount = round(50 * hangAmplitude * column.length * (noise(
+        0.1 * x,
+        0.125 * _pg.height * hangOffset)-0.5
+        ));
+      column = shift(column, amount);
+    }
+
+    for (int y = 0; y < _pg.height; y++) {
+      _pg.pixels[y * _pg.width + x] = column[y];
+    }
+  }
+  _pg.updatePixels();
+  _pg.endDraw();
 }
 
 // pixelsorting for off-screen rendering contexts
 void pixelsort(PGraphics _pg, boolean reverse) {
-  _pg.beginDraw();
-  _pg.loadPixels();
+
+  int[] column = new int[_pg.height];
+
+  for (int x = 0; x < _pg.width; x++) {
+    for (int y = 0; y < _pg.height; y++) {
+      column[y] = _pg.pixels[y * _pg.width + x];
+    }
+    column = sort(column);
+    if (reverse) column = reverse(column);
+
+    for (int y = 0; y < _pg.height; y++) {
+      _pg.pixels[y * _pg.width + x] = column[y];
+    }
+  }
+}
+
+// pixelsorting for off-screen rendering contexts
+void pixelShift(PGraphics _pg) {
 
   int[] column = new int[_pg.height];
   int amount;
@@ -166,8 +230,6 @@ void pixelsort(PGraphics _pg, boolean reverse) {
     for (int y = 0; y < _pg.height; y++) {
       column[y] = _pg.pixels[y * _pg.width + x];
     }
-    column = sort(column);
-    if (reverse) column = reverse(column);
     amount = round(50 * hangAmplitude * column.length * (noise(
       0.1 * x,
       0.125 * _pg.height * hangOffset)-0.5
@@ -177,9 +239,6 @@ void pixelsort(PGraphics _pg, boolean reverse) {
       _pg.pixels[y * _pg.width + x] = column[y];
     }
   }
-
-  _pg.updatePixels();
-  _pg.endDraw();
 }
 
 // pixelsorting on the main rendering chain
@@ -196,7 +255,7 @@ void pixelsort(boolean reverse) {
     column = sort(column);
     if (reverse) column = reverse(column);
     amount = round(50 * hangAmplitude * column.length * (noise(
-      0.1 * x,
+      0.01 * x,
       0.125 * height * hangOffset)-0.5
       ));
     column = shift(column, amount);
@@ -218,6 +277,37 @@ int[] shift(int[] array, int amount) {
   return shifted;
 }
 
+float doubleExponentialSigmoid (float x, float a) {
+
+  float epsilon = 0.00001;
+  float min_param_a = 0.0 + epsilon;
+  float max_param_a = 1.0 - epsilon;
+  a = constrain(a, min_param_a, max_param_a);
+  a = 1.0 - a; // for sensible results
+
+  float y = 0.0;
+
+  if (x <= 0.5) {
+    y = (pow(2.0 * x, 1.0 / a)) / 2.0;
+  } else {
+    y = 1.0 - (pow(2.0 * (1.0 - x), 1.0 / a)) / 2.0;
+  }
+  return y;
+}
+
+void updateBlend() {
+  if (frameCount - blendStart > blendDuration) {
+    activePaletteA = activePaletteB.copy();
+    activePaletteB = palettes.get(int(random(palettes.size())));
+    activePaletteB.randomizePastels();
+    blendStart = frameCount;
+  }
+
+  blend = doubleExponentialSigmoid(
+    (frameCount - blendStart) / float(blendDuration),
+    0.9);
+}
+
 void setShaderColors() {
 
   float[] mixedBackground = {
@@ -230,7 +320,10 @@ void setShaderColors() {
 
   for (int p = 0; p < 3; p++) {
     for (int c = 0; c < 3; c++) {
-      mixedPastels[p][c]=lerp(activePaletteA.pastels[p][c], activePaletteB.pastels[p][c], blend);
+      mixedPastels[p][c] = lerp(
+        activePaletteA.pastels[p][c],
+        activePaletteB.pastels[p][c],
+        blend);
     }
   }
 

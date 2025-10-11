@@ -6,6 +6,9 @@ void keyPressed() {
     activePaletteB = palettes.get(int(random(palettes.size())));
     activePaletteB.randomizePastels();
     break;
+  case 'a':
+    shiftShader = !shiftShader; // toggle pixel shifting for just the shader
+    break;
   case 's':
     sortShader = !sortShader; // toggle pixel sorting for just the shader
     break;

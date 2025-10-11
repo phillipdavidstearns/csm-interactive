@@ -19,12 +19,16 @@ class Palette {
     this.pastels = _pastels;
   }
 
+  Palette copy() {
+    return new Palette(this.name, this.background, this.pastels);
+  }
+
   float[][] randomizePastels() {
     ArrayList<float[]> temp = new ArrayList<float[]>(this.pastels.length);
     for (int i = 0; i < this.pastels.length; i++) {
       temp.add(this.pastels[i]);
     }
-    //Collections.shuffle(temp);
+    Collections.shuffle(temp);
     for (int i = 0; i < temp.size(); i++) {
       this.pastels[i] = temp.get(i);
     }

@@ -2,7 +2,7 @@
 precision mediump float;
 #endif
 
-#define PROCESSING_COLOR_SHADER
+// #define PROCESSING_COLOR_SHADER
 
 uniform sampler2D u_texture;
 uniform vec2 u_resolution;
@@ -26,7 +26,8 @@ uniform vec4 u_background;
 uniform vec4 u_palette[8];
 uniform int u_paletteLength;
 
-//----------------------------------------------------------------
+
+//================================================================
 // Noise functions By Morgan McGuire @morgan3d, http://graphicscodex.com
 // Reuse permitted under the BSD license.
 
@@ -39,11 +40,13 @@ uniform int u_paletteLength;
 
 // For multiple octaves
 #define NOISE fbm
-#define NUM_NOISE_OCTAVES 7
+#define NUM_NOISE_OCTAVES 9
 
 // Precision-adjusted variations of https://www.shadertoy.com/view/4djSRW
 float hash(float p) { p = fract(p * 0.011); p *= p + 7.5; p *= p + p; return fract(p); }
 float hash(vec2 p) {vec3 p3 = fract(vec3(p.xyx) * 0.13); p3 += dot(p3, p3.yzx + 3.333); return fract((p3.x + p3.y) * p3.z); }
+
+//----------------------------------------------------------------
 
 float noise(float x) {
   float i = floor(x);
@@ -73,7 +76,6 @@ float noise(vec2 x) {
   return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
 }
 
-
 float noise(vec3 x) {
   const vec3 step = vec3(110, 241, 171);
 
@@ -90,6 +92,8 @@ float noise(vec3 x) {
          mix(mix( hash(n + dot(step, vec3(0, 0, 1))), hash(n + dot(step, vec3(1, 0, 1))), u.x),
            mix( hash(n + dot(step, vec3(0, 1, 1))), hash(n + dot(step, vec3(1, 1, 1))), u.x), u.y), u.z);
 }
+
+//----------------------------------------------------------------
 
 float fbm(float x) {
   float v = 0.0;
@@ -129,10 +133,11 @@ float fbm(vec3 x) {
   return v;
 }
 
-//----------------------------------------------------------------
+//================================================================
+// SHAPERS
+
 // sigmoid function adapted from
 // https://www.flong.com/archive/texts/code/shapers_exp/index.html
-
 float doubleExponentialSigmoid (float x, float a){
 
   float epsilon = 0.00001;
@@ -148,37 +153,68 @@ float doubleExponentialSigmoid (float x, float a){
   } else {
     y = 1.0 - (pow(2.0 * (1.0 - x), 1.0 / a)) / 2.0;
   }
+
   return y;
 }
 
-//----------------------------------------------------------------
+float smoothstepSigmoid(float x, float center, float width){
+  width = clamp(width, 0.0, 1.0);
+  center = clamp(center, -1.0, 2.0);
+  float start = clamp(center - width, 0.0, 1.0);
+  float end = clamp(center + width, 0.0, 1.0);
+
+  return smoothstep(start, end, x);
+}
+
+//  Function from Iñigo Quiles
+//  www.iquilezles.org/www/articles/functions/functions.htm
+float cubicPulse( float x , float center, float width){
+  x = abs(x - center);
+  if( x > width ) return 0.0;
+  x /= width;
+  return 1.0 - x * x * (3.0 - 2.0 * x);
+}
+
+//================================================================
+
+vec2 zoom(vec2 coord, vec2 center, float factor){
+  return (coord - center) * factor + center;
+}
+
+//================================================================
 
 void main() {
-  vec4 feedback = vec4(0.0);
+
   vec2 uv = gl_FragCoord.xy/u_resolution.xy;
-  vec2 u_zoomCenter = vec2(0.5);
-  vec2 zoomedUV = (uv - u_zoomCenter) * u_feedbackZoom + u_zoomCenter;
-  feedback = texture2D(u_texture, zoomedUV);
+  vec2 feedbackZoomCenter = vec2(0.5);
+  vec2 zoomedUV = zoom(uv, feedbackZoomCenter, u_feedbackZoom);
+  vec4 feedback = texture2D(u_texture, zoomedUV);
 
   // Scale the coordinate system to see
   // some noise in action
   vec2 st = vec2(gl_FragCoord.x/u_resolution.x, gl_FragCoord.y/u_resolution.x);
-  vec2 zoomedST = (st - u_zoomCenter) * u_noiseZoom + u_zoomCenter;
+  vec2 noiseZoomCenter = vec2(0.5, 0.5 * u_resolution.y / u_resolution.x);
+  vec2 zoomedST = zoom(st, noiseZoomCenter, u_noiseZoom);
 
   vec3 pos1 = vec3(zoomedST, u_offset1);
   vec3 pos2 = vec3(zoomedST, u_offset2);
   vec3 pos3 = vec3(zoomedST, u_offset3);
 
-  float mixAmount1 = clamp(u_gain1 * NOISE(pos1 + vec3(0, 0, 1 + u_time)) + u_pedistal1, 0, 1.0);
-  float mixAmount2 = clamp(u_gain2 * NOISE(pos2 + vec3(0, 0, 2 + u_time)) + u_pedistal2, 0, 1.0);
-  float mixAmount3 = clamp(u_gain3 * NOISE(pos3 + vec3(0, 0, 3 + u_time)) + u_pedistal3, 0, 1.0);
-  float mixAmount4 = clamp(u_gain4 * NOISE(vec3(zoomedST, u_time)) + u_pedistal4, 0, 1.0);
+  float mixAmount1 = clamp(NOISE(pos1 + vec3(0, 0, 1 + u_time)), 0, 1.0);
+  float mixAmount2 = clamp(NOISE(pos2 + vec3(0, 0, 2 + u_time)), 0, 1.0);
+  float mixAmount3 = clamp(NOISE(pos3 + vec3(0, 0, 3 + u_time)), 0, 1.0);
+  float mixAmount4 = clamp(NOISE(vec3(zoomedST, u_time)), 0, 1.0);
 
-  vec4 layer1 = mix(u_background, u_palette[0], doubleExponentialSigmoid(mixAmount1, 0.875));  
-  vec4 layer2 = mix(layer1, u_palette[1], doubleExponentialSigmoid(mixAmount2, 0.875));
-  vec4 layer3 = mix(layer2, u_palette[2], doubleExponentialSigmoid(mixAmount3, 0.875));
-  vec4 layer4 = mix(layer3, feedback, doubleExponentialSigmoid(mixAmount4, 0.875));
+  vec4 layer1 = mix(u_background, u_palette[0], cubicPulse(mixAmount1, u_gain1+u_pedistal1, 0.025));  
+  vec4 layer2 = mix(layer1, u_palette[1], cubicPulse(mixAmount2, u_gain2+u_pedistal2, 0.025));
+  vec4 layer3 = mix(layer2, u_palette[2], cubicPulse(mixAmount3, u_gain3+u_pedistal3, 0.025));
+  vec4 layer4 = mix(layer3, feedback, smoothstepSigmoid(mixAmount4, 0.5, 0.125));
 
-  gl_FragColor = layer4;
+  // vec4 layer1 = mix(u_background, u_palette[0], doubleExponentialSigmoid(mixAmount1, 0.975));  
+  // vec4 layer2 = mix(layer1, u_palette[1], doubleExponentialSigmoid(mixAmount2, 0.975));
+  // vec4 layer3 = mix(layer2, u_palette[2], doubleExponentialSigmoid(mixAmount3, 0.975));
+  // vec4 layer4 = mix(layer3, feedback, doubleExponentialSigmoid(mixAmount4, 0.0));
+
+  gl_FragColor = layer3;
 }
 
