@@ -1,6 +1,7 @@
 import processing.sound.*;
+int qtyInstruments = 3;
 
-PShader shader;
+PShader noiseLayer;
 PGraphics pg;
 
 boolean sortShader = false;
@@ -25,6 +26,11 @@ float blend = 0.0;
 float rate = 0.001;
 int blendStart = 0;
 int blendDuration = 1200;
+
+float[] gain = new float[qtyInstruments];
+float[] offset = new float[qtyInstruments];
+float noiseZoomFactor;
+float feedbackZoomFactor;
 
 // Wall dimensions: 361" x 144" - projector location? distance back?
 // Projector Aspect Ratio: 16:9
@@ -53,11 +59,11 @@ void setup() {
 
 
   // Load and compile shader
-  shader = loadShader("shader.frag");
+  noiseLayer = loadShader("noise.frag");
   // We only have to set resolution once
-  shader.set("u_resolution", float(width), float(height));
+  noiseLayer.set("u_resolution", float(width), float(height));
   pg = createGraphics(width, height, P2D);
-  shader.set("u_texture", pg);
+  //shader.set("u_texture", pg);
 
   try {
     Sound s = new Sound(this);
@@ -77,6 +83,7 @@ void setup() {
 }
 
 void draw() {
+  background(getBGColor());
   //read analyzers
 
   bodhranAmplitude = bodhran.getAmplitude();
@@ -88,48 +95,51 @@ void draw() {
   kalimbaAmplitude = kalimba.getAmplitude();
   kalimbaOffset += kalimbaAmplitude;
 
-  //float feedbackZoomFactor = noise(0.1, sin(2 * PI * frameCount / 10000.0));
-  //float noiseZoomFactor = 2.5 * noise(0.2, sin(2 * PI * frameCount / 11000.0)) + 2.5;
 
-  float feedbackZoomFactor = 1.0 - noise(1, (bodhranAmplitude+hangAmplitude+kalimbaAmplitude)/3);
-  float noiseZoomFactor = 2.5 * noise(2, (bodhranOffset+hangOffset+kalimbaOffset)/3) + 2.5;
+  feedbackZoomFactor = 1.0 - noise(1, (bodhranAmplitude+hangAmplitude+kalimbaAmplitude)/3);
+  noiseZoomFactor = 2.5 * noise(2, (bodhranOffset+hangOffset+kalimbaOffset)/3) + 2.5;
 
-  float gain1 = 5.0 * bodhranAmplitude;
-  float gain2 = 5.0 * hangAmplitude;
-  float gain3 = 5.0 * kalimbaAmplitude;
+
+  gain[0] = 5.0 * bodhranAmplitude;
+  gain[1] = 5.0 * hangAmplitude;
+  gain[2] = 5.0 * kalimbaAmplitude;
+
+  offset[0] = bodhranOffset;
+  offset[1] = hangOffset;
+  offset[2] = kalimbaOffset;
 
   // Set uniforms
-  shader.set("u_texture", pg);
-  shader.set("u_time", millis() * 0.00001);
-  shader.set("u_offset1", bodhranOffset);
-  shader.set("u_offset2", hangOffset);
-  shader.set("u_offset3", kalimbaOffset);
-  shader.set("u_feedbackZoom", feedbackZoomFactor);
-  shader.set("u_noiseZoom", noiseZoomFactor);
-  shader.set("u_gain1", gain1);
-  shader.set("u_gain2", gain2);
-  shader.set("u_gain3", gain3);
-  shader.set("u_gain4", 0.0);
-  shader.set("u_pedistal1", 0.25);
-  shader.set("u_pedistal2", 0.25);
-  shader.set("u_pedistal3", 0.25);
-  shader.set("u_pedistal4", 0.0);
 
-  setShaderColors();
+  if (pg != null) {
+    // if (sortFeedback) pixelsort(pg, reverseFeedbackSort);
+    pg.beginDraw();
+    pg.loadPixels();
+    for (int i = 0; i < pg.pixels.length; i++) {
+      pg.pixels[i] = color(
+        floor((pg.pixels[i] >> 16 & 0xFF) * 0.75),
+        floor((pg.pixels[i] >> 8 & 0xFF) * 0.75),
+        floor((pg.pixels[i] & 0xFF) * 0.75),
+        floor((pg.pixels[i] >> 24 & 0xFF) * 0.75)
+        );
+    }
+    pg.updatePixels();
 
-  // if (sortFeedback) pixelsort(pg, reverseFeedbackSort);
-  pg.beginDraw();
-  pg.shader(shader);
-  pg.rect(0, 0, width, height);
-  pg.endDraw();
+    for (int i = 0; i < qtyInstruments; i++) {
+      setShaderParams(i);
+      pg.shader(noiseLayer);
+      pg.rect(0, 0, width, height);
+      //pg.resetShader();
+    }
 
-  processPixels(pg);
+    pg.endDraw();
+    //processPixels(pg);
 
-  image(pg, 0, 0);
+    image(pg, 0, 0);
+  }
   fill(255);
-  text("bodhran: " + gain1, 100, 50);
-  text("hang pan: " + gain2, 100, 80);
-  text("kalimba: " + gain3, 100, 110);
+  text("bodhran: " + gain[0], 100, 50);
+  text("hang pan: " + gain[1], 100, 80);
+  text("kalimba: " + gain[2], 100, 110);
   text("frameCount: " + frameCount, 100, 140);
   text("blendStart: " + blendStart, 100, 170);
   text("blendDuration: " + blendDuration, 100, 200);
@@ -142,17 +152,14 @@ void draw() {
 
   noStroke();
 
-  fill(
-    round(mixedPalette.background[0]*255),
-    round(mixedPalette.background[1]*255),
-    round(mixedPalette.background[2]*255)
-    );
+  fill(getBGColor());
   square(20, 50, 30);
-  for (int i = 0; i < mixedPalette.pastels.length; i++) {
+  for (int i = 0; i < qtyInstruments; i++) {
+    float[] pastel = getPaletteColor(i);
     fill(
-      round(mixedPalette.pastels[i][0]*255),
-      round(mixedPalette.pastels[i][1]*255),
-      round(mixedPalette.pastels[i][2]*255)
+      round(pastel[0]*255),
+      round(pastel[1]*255),
+      round(pastel[2]*255)
       );
     square(20, 80+(i*30), 30);
   }
@@ -308,28 +315,28 @@ void updateBlend() {
     0.9);
 }
 
-void setShaderColors() {
+color getBGColor() {
+  return color(
+    round(255*lerp(activePaletteA.background[0], activePaletteB.background[0], blend)),
+    round(255*lerp(activePaletteA.background[1], activePaletteB.background[1], blend)),
+    round(255*lerp(activePaletteA.background[2], activePaletteB.background[2], blend))
+    );
+}
 
-  float[] mixedBackground = {
-    lerp(activePaletteA.background[0], activePaletteB.background[0], blend),
-    lerp(activePaletteA.background[1], activePaletteB.background[1], blend),
-    lerp(activePaletteA.background[2], activePaletteB.background[2], blend)
+float[] getPaletteColor(int index) {
+  return new float[]{
+    lerp(activePaletteA.pastels[index][0], activePaletteB.pastels[index][0], blend),
+    lerp(activePaletteA.pastels[index][1], activePaletteB.pastels[index][1], blend),
+    lerp(activePaletteA.pastels[index][2], activePaletteB.pastels[index][2], blend)
   };
+}
 
-  float[][] mixedPastels = new float[3][3];
-
-  for (int p = 0; p < 3; p++) {
-    for (int c = 0; c < 3; c++) {
-      mixedPastels[p][c] = lerp(
-        activePaletteA.pastels[p][c],
-        activePaletteB.pastels[p][c],
-        blend);
-    }
-  }
-
-  mixedPalette = new Palette("mixed", mixedBackground, mixedPastels);
-
-  shader.set("u_background", mixedPalette.background[0], mixedPalette.background[1], mixedPalette.background[2], 1.0);
-  shader.set("u_palette", mixedPalette.getFlattenedPalette(), 4);
-  shader.set("u_paletteLength", mixedPalette.pastels.length);
+void setShaderParams(int i) {
+  float[] pastel = getPaletteColor(i);
+  noiseLayer.set("u_color", pastel[0], pastel[1], pastel[2]);
+  noiseLayer.set("u_time", millis() * 0.0001);
+  noiseLayer.set("u_offset", offset[i]);
+  noiseLayer.set("u_zoom", noiseZoomFactor);
+  noiseLayer.set("u_gain", gain[i]);
+  noiseLayer.set("u_pedistal", 0.25);
 }
