@@ -188,7 +188,7 @@ void main() {
 
   float alpha = clamp(fbm(pos1), 0, 1.0);
 
-  vec4 color = vec4(u_color, cubicPulse(alpha, u_gain + u_pedistal, 0.05));
+  vec4 color = vec4(u_color, cubicPulse(alpha*alpha, u_gain + u_pedistal, 0.1));
 
   gl_FragColor = vec4(color);
 }

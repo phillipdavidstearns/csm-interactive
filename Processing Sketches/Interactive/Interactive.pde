@@ -6,9 +6,18 @@ PGraphics pg;
 
 boolean sortShader = false;
 boolean shiftShader = false;
+boolean shiftSort = false;
 boolean sortFeedback = false;
-boolean reverseShaderSort = false;
+boolean reverseSort= false;
 boolean reverseFeedbackSort = false;
+boolean devMode = false;
+boolean preProcess = false;
+boolean postProcess = false;
+
+static private int GT = 0;
+static private int LT = 1;
+
+int sortMode = 0;
 
 InputAnalyzer hang;
 InputAnalyzer bodhran;
@@ -97,12 +106,12 @@ void draw() {
 
 
   feedbackZoomFactor = 1.0 - noise(1, (bodhranAmplitude+hangAmplitude+kalimbaAmplitude)/3);
-  noiseZoomFactor = 2.5 * noise(2, (bodhranOffset+hangOffset+kalimbaOffset)/3) + 2.5;
+  noiseZoomFactor = 5;
 
 
-  gain[0] = 5.0 * bodhranAmplitude;
-  gain[1] = 5.0 * hangAmplitude;
-  gain[2] = 5.0 * kalimbaAmplitude;
+  gain[0] = 2.0 * bodhranAmplitude;
+  gain[1] = 2.0 * hangAmplitude;
+  gain[2] = 2.0 * kalimbaAmplitude;
 
   offset[0] = bodhranOffset;
   offset[1] = hangOffset;
@@ -113,13 +122,14 @@ void draw() {
   if (pg != null) {
     // if (sortFeedback) pixelsort(pg, reverseFeedbackSort);
     pg.beginDraw();
+    pg.noStroke();
     pg.loadPixels();
     for (int i = 0; i < pg.pixels.length; i++) {
       pg.pixels[i] = color(
-        floor((pg.pixels[i] >> 16 & 0xFF) * 0.75),
-        floor((pg.pixels[i] >> 8 & 0xFF) * 0.75),
-        floor((pg.pixels[i] & 0xFF) * 0.75),
-        floor((pg.pixels[i] >> 24 & 0xFF) * 0.75)
+        floor((pg.pixels[i] >> 16 & 0xFF)),
+        floor((pg.pixels[i] >> 8 & 0xFF)),
+        floor((pg.pixels[i] & 0xFF)),
+        floor((pg.pixels[i] >> 24 & 0xFF) * 0.9)
         );
     }
     pg.updatePixels();
@@ -127,15 +137,28 @@ void draw() {
     for (int i = 0; i < qtyInstruments; i++) {
       setShaderParams(i);
       pg.shader(noiseLayer);
-      pg.rect(0, 0, width, height);
-      //pg.resetShader();
+      pg.rect(0, 0, pg.width, pg.height);
+      pg.resetShader(); // necessary to maintain layer independence
     }
 
     pg.endDraw();
-    //processPixels(pg);
-
+    if (preProcess) processPixels(pg);
     image(pg, 0, 0);
   }
+  
+  if (postProcess) processPixels();
+
+  if (devMode) showInfo();
+
+  updateBlend();
+
+  // draw white crosshairs
+  //stroke(255);
+  //line(0, height/2.0, width, height/2.0);
+  //line(width/2.0, 0, width/2.0, height);
+}
+
+void showInfo() {
   fill(255);
   text("bodhran: " + gain[0], 100, 50);
   text("hang pan: " + gain[1], 100, 80);
@@ -163,20 +186,13 @@ void draw() {
       );
     square(20, 80+(i*30), 30);
   }
-
-  updateBlend();
-
-  // draw white crosshairs
-  //stroke(255);
-  //line(0, height/2.0, width, height/2.0);
-  //line(width/2.0, 0, width/2.0, height);
 }
 
 void processPixels(PGraphics _pg) {
   if (sortShader ==false &&
     shiftShader == false &&
     sortFeedback == false &&
-    reverseShaderSort == false &&
+    reverseSort == false &&
     reverseFeedbackSort == false) return;
 
   _pg.beginDraw();
@@ -188,15 +204,12 @@ void processPixels(PGraphics _pg) {
       column[y] = _pg.pixels[y * _pg.width + x];
     }
 
-    if (sortShader) {
-      column = sort(column);
-      if (reverseShaderSort) column = reverse(column);
-    }
+    if (sortShader) column = thresholdSort(column, 127, sortMode);
 
     if (shiftShader) {
-      int amount = round(50 * hangAmplitude * column.length * (noise(
-        0.1 * x,
-        0.125 * _pg.height * hangOffset)-0.5
+      int amount = round(((bodhranAmplitude+hangAmplitude+kalimbaAmplitude)/3.0) * column.length * (noise(
+        0.01 * x,
+        _pg.height * frameCount * 0.0001)-0.5
         ));
       column = shift(column, amount);
     }
@@ -209,69 +222,93 @@ void processPixels(PGraphics _pg) {
   _pg.endDraw();
 }
 
-// pixelsorting for off-screen rendering contexts
-void pixelsort(PGraphics _pg, boolean reverse) {
-
-  int[] column = new int[_pg.height];
-
-  for (int x = 0; x < _pg.width; x++) {
-    for (int y = 0; y < _pg.height; y++) {
-      column[y] = _pg.pixels[y * _pg.width + x];
-    }
-    column = sort(column);
-    if (reverse) column = reverse(column);
-
-    for (int y = 0; y < _pg.height; y++) {
-      _pg.pixels[y * _pg.width + x] = column[y];
-    }
-  }
-}
-
-// pixelsorting for off-screen rendering contexts
-void pixelShift(PGraphics _pg) {
-
-  int[] column = new int[_pg.height];
-  int amount;
-
-  for (int x = 0; x < _pg.width; x++) {
-    for (int y = 0; y < _pg.height; y++) {
-      column[y] = _pg.pixels[y * _pg.width + x];
-    }
-    amount = round(50 * hangAmplitude * column.length * (noise(
-      0.1 * x,
-      0.125 * _pg.height * hangOffset)-0.5
-      ));
-    column = shift(column, amount);
-    for (int y = 0; y < _pg.height; y++) {
-      _pg.pixels[y * _pg.width + x] = column[y];
-    }
-  }
-}
-
-// pixelsorting on the main rendering chain
-void pixelsort(boolean reverse) {
+void processPixels() {
   loadPixels();
-
   int[] column = new int[height];
-  int amount;
 
   for (int x = 0; x < width; x++) {
     for (int y = 0; y < height; y++) {
       column[y] = pixels[y * width + x];
     }
-    column = sort(column);
-    if (reverse) column = reverse(column);
-    amount = round(50 * hangAmplitude * column.length * (noise(
-      0.01 * x,
-      0.125 * height * hangOffset)-0.5
-      ));
-    column = shift(column, amount);
+
+    if (sortShader) column = thresholdSort(column, 127, sortMode);
+
+    if (shiftShader) {
+      int amount = round(((bodhranAmplitude+hangAmplitude+kalimbaAmplitude)/3.0) * column.length * (noise(
+        0.01 * x,
+        height * frameCount * 0.0001) - 0.5
+        ));
+      column = shift(column, amount);
+    }
+
     for (int y = 0; y < height; y++) {
       pixels[y * width + x] = column[y];
     }
   }
-
   updatePixels();
+}
+
+
+// pixelsorting on the main rendering chain
+int[] thresholdSort(int[] pixelArray, int threshold, int mode) {
+  boolean segmentFlag = false;
+  int start = 0;
+  int end = 0;
+  switch(mode) {
+  case 0:
+    for (int i = 0; i < pixelArray.length; i++) {
+      if (!segmentFlag && brightness(pixelArray[i]) >= threshold) {
+        start = i;
+        segmentFlag = true;
+      } else if (segmentFlag && brightness(pixelArray[i]) < threshold) {
+        end = i;
+        segmentFlag = false;
+        int[] chunk = new int[end-start];
+        for (int j = 0; j < end-start; j++) {
+          chunk[j] = pixelArray[start+j];
+        }
+        chunk = sort(chunk);
+        if (reverseSort) chunk = reverse(chunk);
+        if (shiftSort) {
+          int amount = round(chunk.length * noise(
+            0.1 * i,
+           frameCount * 0.0001));
+          chunk = shift(chunk, amount);
+        }
+        for (int j = 0; j < end-start; j++) {
+          pixelArray[start+j] = chunk[j];
+        }
+      }
+    }
+    break;
+  case 1:
+    for (int i = 0; i < pixelArray.length; i++) {
+      if (!segmentFlag && brightness(pixelArray[i]) <= threshold) {
+        start = i;
+        segmentFlag = true;
+      } else if (segmentFlag && brightness(pixelArray[i]) > threshold) {
+        end = i;
+        segmentFlag = false;
+        int[] chunk = new int[end-start];
+        for (int j = 0; j < end-start; j++) {
+          chunk[j] = pixelArray[start+j];
+        }
+        chunk = sort(chunk);
+        if (reverseSort) chunk = reverse(chunk);
+        if (shiftSort) {
+          int amount = round(chunk.length * noise(
+            0.1 * i,
+           frameCount * 0.0001));
+          chunk = shift(chunk, amount);
+        }
+        for (int j = 0; j < end-start; j++) {
+          pixelArray[start+j] = chunk[j];
+        }
+      }
+    }
+    break;
+  }
+  return pixelArray;
 }
 
 int[] shift(int[] array, int amount) {
@@ -338,5 +375,5 @@ void setShaderParams(int i) {
   noiseLayer.set("u_offset", offset[i]);
   noiseLayer.set("u_zoom", noiseZoomFactor);
   noiseLayer.set("u_gain", gain[i]);
-  noiseLayer.set("u_pedistal", 0.25);
+  noiseLayer.set("u_pedistal", 0.0125);
 }

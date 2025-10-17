@@ -13,13 +13,23 @@ void keyPressed() {
     sortShader = !sortShader; // toggle pixel sorting for just the shader
     break;
   case 'r':
-    reverseShaderSort = !reverseShaderSort;
+    reverseSort = !reverseSort;
     break;
   case 'S':
-    sortFeedback = !sortFeedback; // toggle pixel sorting for the feedback loop
+    shiftSort = !shiftSort; // toggle pixel sorting for the feedback loop
     break;
-  case 'R':
-    reverseFeedbackSort = !reverseFeedbackSort;
+  case 'i':
+    devMode = !devMode;
+    break;
+  case 'm':
+    sortMode ++;
+    sortMode %= 2;
+    break;
+  case 'p':
+    preProcess = !preProcess;
+    break;
+  case 'P':
+    postProcess = !postProcess;
     break;
   }
 }
