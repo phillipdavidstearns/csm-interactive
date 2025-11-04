@@ -6,7 +6,7 @@ precision mediump float;
 
 uniform vec2 u_resolution;
 uniform float u_time;
-uniform float u_offset;
+uniform vec3 u_offset;
 uniform float u_zoom;
 // uniform int u_octaves;
 // uniform float u_falloff;
@@ -123,27 +123,6 @@ float fbm(vec3 x) {
 //================================================================
 // SHAPERS
 
-// sigmoid function adapted from
-// https://www.flong.com/archive/texts/code/shapers_exp/index.html
-float doubleExponentialSigmoid (float x, float a){
-
-  float epsilon = 0.00001;
-  float min_param_a = 0.0 + epsilon;
-  float max_param_a = 1.0 - epsilon;
-  a = clamp(a , min_param_a, max_param_a);
-  a = 1.0 - a; // for sensible results
-
-  float y = 0.0;
-
-  if (x <= 0.5){
-    y = (pow(2.0 * x, 1.0 / a)) / 2.0;
-  } else {
-    y = 1.0 - (pow(2.0 * (1.0 - x), 1.0 / a)) / 2.0;
-  }
-
-  return y;
-}
-
 float smoothstepSigmoid(float x, float center, float width){
   width = clamp(width, 0.0, 1.0);
   center = clamp(center, -1.0, 2.0);
@@ -184,7 +163,9 @@ void main() {
   r.x = fbm( st + 1.0 * q + vec2(-1.570,2.430) + 0.01 * u_time);
   r.y = fbm( st + 1.0 * q + vec2(3.600,-4.610) + 0.01 * u_time);
 
-  vec3 pos1 = vec3(st+r, u_offset);
+  st += r;
+
+  vec3 pos1 = vec3(u_offset.x + st.x, u_offset.y + st.y, u_offset.z );
 
   float alpha = clamp(fbm(pos1), 0, 1.0);
 

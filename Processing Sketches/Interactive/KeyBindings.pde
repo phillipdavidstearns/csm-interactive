@@ -1,4 +1,4 @@
-void keyPressed() {
+  void keyPressed() {
   switch(key) {
   case ' ':
     activePaletteA = palettes.get(int(random(palettes.size())));
@@ -23,7 +23,7 @@ void keyPressed() {
     break;
   case 'm':
     sortMode ++;
-    sortMode %= 2;
+    sortMode %= 8;
     break;
   case 'p':
     preProcess = !preProcess;

@@ -17,7 +17,13 @@ boolean postProcess = false;
 static private int GT = 0;
 static private int LT = 1;
 
+int threshold = 0;
 int sortMode = 0;
+
+int thMin = 0;
+int thMax = 0;
+float thRatio = 0.0;
+float thWidth = 0.0;
 
 InputAnalyzer hang;
 InputAnalyzer bodhran;
@@ -37,7 +43,7 @@ int blendStart = 0;
 int blendDuration = 1200;
 
 float[] gain = new float[qtyInstruments];
-float[] offset = new float[qtyInstruments];
+PVector[] offset = new PVector[qtyInstruments];
 float noiseZoomFactor;
 float feedbackZoomFactor;
 
@@ -89,10 +95,29 @@ void setup() {
   kalimba = new InputAnalyzer(this, 2, 2048, 1024);
 
   blendStart = frameCount;
+
+  offset[0] = new PVector(
+    random(-2, 2),
+    random(-2, 2),
+    bodhranOffset
+    );
+  offset[1] = new PVector(
+    random(-2, 2),
+    random(-2, 2),
+    hangOffset
+    );
+  offset[2] = new PVector(
+    random(-2, 2),
+    random(-2, 2),
+    kalimbaOffset
+    );
 }
 
 void draw() {
   background(getBGColor());
+
+  updateThresholds();
+
   //read analyzers
 
   bodhranAmplitude = bodhran.getAmplitude();
@@ -113,9 +138,9 @@ void draw() {
   gain[1] = 2.0 * hangAmplitude;
   gain[2] = 2.0 * kalimbaAmplitude;
 
-  offset[0] = bodhranOffset;
-  offset[1] = hangOffset;
-  offset[2] = kalimbaOffset;
+  offset[0].z = bodhranOffset;
+  offset[1].z = hangOffset;
+  offset[2].z = kalimbaOffset;
 
   // Set uniforms
 
@@ -145,7 +170,7 @@ void draw() {
     if (preProcess) processPixels(pg);
     image(pg, 0, 0);
   }
-  
+
   if (postProcess) processPixels();
 
   if (devMode) showInfo();
@@ -168,10 +193,12 @@ void showInfo() {
   text("blendDuration: " + blendDuration, 100, 200);
   text("blend: " + blend, 100, 230);
 
-
   text("bodhranOffset: " + bodhranOffset, 250, 50);
   text("hangOffset: " + hangOffset, 250, 80);
   text("kalimbaOffset: " + kalimbaOffset, 250, 110);
+
+  text("minThreshold: " + thMin, 250, 140);
+  text("maxThreshold: " + thMax, 250, 170);
 
   noStroke();
 
@@ -186,6 +213,15 @@ void showInfo() {
       );
     square(20, 80+(i*30), 30);
   }
+}
+
+void updateThresholds() {
+
+  thRatio = 0.5 * (sin(2*PI*frameCount*0.001) + 1);
+  thWidth = 0.5 * (sin(2*PI*frameCount*0.002) + 1);
+
+  thMin = round(255 * thRatio * (1 - thWidth));
+  thMax = round(255 * (thRatio * (1 - thWidth) + thWidth));
 }
 
 void processPixels(PGraphics _pg) {
@@ -204,7 +240,7 @@ void processPixels(PGraphics _pg) {
       column[y] = _pg.pixels[y * _pg.width + x];
     }
 
-    if (sortShader) column = thresholdSort(column, 127, sortMode);
+    if (sortShader) column = thresholdSort(column, thMin, thMax, sortMode);
 
     if (shiftShader) {
       int amount = round(((bodhranAmplitude+hangAmplitude+kalimbaAmplitude)/3.0) * column.length * (noise(
@@ -231,7 +267,7 @@ void processPixels() {
       column[y] = pixels[y * width + x];
     }
 
-    if (sortShader) column = thresholdSort(column, 127, sortMode);
+    if (sortShader) column = thresholdSort(column, thMin, thMax, sortMode);
 
     if (shiftShader) {
       int amount = round(((bodhranAmplitude+hangAmplitude+kalimbaAmplitude)/3.0) * column.length * (noise(
@@ -248,66 +284,65 @@ void processPixels() {
   updatePixels();
 }
 
+boolean evalPixel(float value, int min, int max, int mode, boolean out) {
+  switch(mode) {
+  case 0:
+    return out ? value >= min : value < min;
+  case 1:
+    return out ? value >= max : value < max;
+  case 2:
+    return out ? value >= max : value < min;
+
+  case 3:
+    return out ? value <= min : value > min;
+  case 4:
+    return out ? value <= max : value > max;
+  case 5:
+    return out ? value <= min : value > max;
+
+  case 6:
+    return out ? value <= min : value < max;
+  case 7:
+    return out ? value >= max : value > min;
+  }
+  return false;
+}
+
+
 
 // pixelsorting on the main rendering chain
-int[] thresholdSort(int[] pixelArray, int threshold, int mode) {
+int[] thresholdSort(int[] pixelArray, int min, int max, int mode) {
   boolean segmentFlag = false;
   int start = 0;
   int end = 0;
-  switch(mode) {
-  case 0:
-    for (int i = 0; i < pixelArray.length; i++) {
-      if (!segmentFlag && brightness(pixelArray[i]) >= threshold) {
-        start = i;
-        segmentFlag = true;
-      } else if (segmentFlag && brightness(pixelArray[i]) < threshold) {
-        end = i;
-        segmentFlag = false;
-        int[] chunk = new int[end-start];
-        for (int j = 0; j < end-start; j++) {
-          chunk[j] = pixelArray[start+j];
-        }
-        chunk = sort(chunk);
-        if (reverseSort) chunk = reverse(chunk);
-        if (shiftSort) {
-          int amount = round(chunk.length * noise(
-            0.1 * i,
-           frameCount * 0.0001));
-          chunk = shift(chunk, amount);
-        }
-        for (int j = 0; j < end-start; j++) {
-          pixelArray[start+j] = chunk[j];
-        }
+  float value;
+  for (int i = 0; i < pixelArray.length; i++) {
+    value = brightness(pixelArray[i]);
+
+    if (!segmentFlag && evalPixel(value, min, max, mode, segmentFlag)) {
+      start = i;
+      segmentFlag = true;
+    } else if (segmentFlag && (evalPixel(value, min, max, mode, segmentFlag) || i == pixelArray.length - 1)) {
+      end = i;
+      segmentFlag = false;
+      int[] chunk = new int[end-start];
+      for (int j = 0; j < end-start; j++) {
+        chunk[j] = pixelArray[start+j];
+      }
+      chunk = sort(chunk);
+      if (reverseSort) chunk = reverse(chunk);
+      if (shiftSort) {
+        int amount = round(chunk.length * noise(
+          0.1 * i,
+          frameCount * 0.0001));
+        chunk = shift(chunk, amount);
+      }
+      for (int j = 0; j < end-start; j++) {
+        pixelArray[start+j] = chunk[j];
       }
     }
-    break;
-  case 1:
-    for (int i = 0; i < pixelArray.length; i++) {
-      if (!segmentFlag && brightness(pixelArray[i]) <= threshold) {
-        start = i;
-        segmentFlag = true;
-      } else if (segmentFlag && brightness(pixelArray[i]) > threshold) {
-        end = i;
-        segmentFlag = false;
-        int[] chunk = new int[end-start];
-        for (int j = 0; j < end-start; j++) {
-          chunk[j] = pixelArray[start+j];
-        }
-        chunk = sort(chunk);
-        if (reverseSort) chunk = reverse(chunk);
-        if (shiftSort) {
-          int amount = round(chunk.length * noise(
-            0.1 * i,
-           frameCount * 0.0001));
-          chunk = shift(chunk, amount);
-        }
-        for (int j = 0; j < end-start; j++) {
-          pixelArray[start+j] = chunk[j];
-        }
-      }
-    }
-    break;
   }
+
   return pixelArray;
 }
 
