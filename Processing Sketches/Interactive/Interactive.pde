@@ -1,4 +1,9 @@
+//================================================================
+
 import processing.sound.*;
+
+//----------------------------------------------------------------
+
 int qtyInstruments = 3;
 
 PShader noiseLayer;
@@ -9,13 +14,9 @@ boolean shiftShader = false;
 boolean shiftSort = false;
 boolean sortFeedback = false;
 boolean reverseSort= false;
-boolean reverseFeedbackSort = false;
 boolean devMode = false;
 boolean preProcess = false;
 boolean postProcess = false;
-
-static private int GT = 0;
-static private int LT = 1;
 
 int threshold = 0;
 int sortMode = 0;
@@ -58,6 +59,8 @@ Palette activePaletteA;
 Palette activePaletteB;
 Palette mixedPalette;
 
+//================================================================
+
 void setup() {
   pixelDensity(1);
   fullScreen(P2D, 2);
@@ -66,36 +69,36 @@ void setup() {
   noiseDetail(7, 0.5);
   noStroke();
 
-  loadPalettes();
+  palettes = loadPalettes();
   activePaletteA = palettes.get(int(random(palettes.size())));
   activePaletteA.randomizePastels();
   activePaletteB = palettes.get(int(random(palettes.size())));
   activePaletteB.randomizePastels();
 
-
   // Load and compile shader
   noiseLayer = loadShader("noise.frag");
   // We only have to set resolution once
   noiseLayer.set("u_resolution", float(width), float(height));
-  pg = createGraphics(width, height, P2D);
-  //shader.set("u_texture", pg);
 
+  // Create an off-screen rendering context
+  pg = createGraphics(width, height, P2D);
+
+  // Initialize the sound device
   try {
-    Sound s = new Sound(this);
+    //Sound s = new Sound(this);
     String device = "Scarlett 18i8 USB";
-    s.inputDevice(device);
+    processing.sound.Sound.inputDevice(device);
   }
   catch(Exception e) {
     print("While initializing Sound Object: " + e);
-    //exit();
   }
 
+  // create analyzers for each of the instruments
   bodhran = new InputAnalyzer(this, 0, 2048, 1024);
   hang = new InputAnalyzer(this, 1, 2048, 1024);
   kalimba = new InputAnalyzer(this, 2, 2048, 1024);
 
-  blendStart = frameCount;
-
+  //used to create unique starting conditions for the pastel noise layers
   offset[0] = new PVector(
     random(-2, 2),
     random(-2, 2),
@@ -111,7 +114,11 @@ void setup() {
     random(-2, 2),
     kalimbaOffset
     );
+
+  blendStart = frameCount;
 }
+
+//================================================================
 
 void draw() {
   background(getBGColor());
@@ -129,10 +136,8 @@ void draw() {
   kalimbaAmplitude = kalimba.getAmplitude();
   kalimbaOffset += kalimbaAmplitude;
 
-
   feedbackZoomFactor = 1.0 - noise(1, (bodhranAmplitude+hangAmplitude+kalimbaAmplitude)/3);
   noiseZoomFactor = 5;
-
 
   gain[0] = 2.0 * bodhranAmplitude;
   gain[1] = 2.0 * hangAmplitude;
@@ -167,11 +172,11 @@ void draw() {
     }
 
     pg.endDraw();
-    if (preProcess) processPixels(pg);
+    if (preProcess) process(pg);
     image(pg, 0, 0);
   }
 
-  if (postProcess) processPixels();
+  if (postProcess) process();
 
   if (devMode) showInfo();
 
@@ -182,6 +187,21 @@ void draw() {
   //line(0, height/2.0, width, height/2.0);
   //line(width/2.0, 0, width/2.0, height);
 }
+
+//================================================================
+
+void setShaderParams(int i) {
+  float[] pastel = getPaletteColor(i);
+  noiseLayer.set("u_color", pastel[0], pastel[1], pastel[2]);
+  noiseLayer.set("u_time", millis() * 0.0001);
+  noiseLayer.set("u_offset", offset[i]);
+  noiseLayer.set("u_zoom", noiseZoomFactor);
+  noiseLayer.set("u_gain", gain[i]);
+  noiseLayer.set("u_pedistal", 0.0125);
+}
+
+//================================================================
+// Diagnostics Display
 
 void showInfo() {
   fill(255);
@@ -215,6 +235,9 @@ void showInfo() {
   }
 }
 
+//================================================================
+// Pixel Sorting Related Functions
+
 void updateThresholds() {
 
   thRatio = 0.5 * (sin(2*PI*frameCount*0.001) + 1);
@@ -224,47 +247,37 @@ void updateThresholds() {
   thMax = round(255 * (thRatio * (1 - thWidth) + thWidth));
 }
 
-void processPixels(PGraphics _pg) {
+//----------------------------------------------------------------
+
+void process(PGraphics _pg) {
   if (sortShader ==false &&
     shiftShader == false &&
     sortFeedback == false &&
-    reverseSort == false &&
-    reverseFeedbackSort == false) return;
+    reverseSort == false ) return;
 
   _pg.beginDraw();
   _pg.loadPixels();
-  int[] column = new int[_pg.height];
-
-  for (int x = 0; x < _pg.width; x++) {
-    for (int y = 0; y < _pg.height; y++) {
-      column[y] = _pg.pixels[y * _pg.width + x];
-    }
-
-    if (sortShader) column = thresholdSort(column, thMin, thMax, sortMode);
-
-    if (shiftShader) {
-      int amount = round(((bodhranAmplitude+hangAmplitude+kalimbaAmplitude)/3.0) * column.length * (noise(
-        0.01 * x,
-        _pg.height * frameCount * 0.0001)-0.5
-        ));
-      column = shift(column, amount);
-    }
-
-    for (int y = 0; y < _pg.height; y++) {
-      _pg.pixels[y * _pg.width + x] = column[y];
-    }
-  }
+  processPixels(_pg.pixels, _pg.height, _pg.width);
   _pg.updatePixels();
   _pg.endDraw();
 }
 
-void processPixels() {
-  loadPixels();
-  int[] column = new int[height];
+//----------------------------------------------------------------
 
-  for (int x = 0; x < width; x++) {
-    for (int y = 0; y < height; y++) {
-      column[y] = pixels[y * width + x];
+void process() {
+  loadPixels();
+  processPixels(pixels, height, width);
+  updatePixels();
+}
+
+//----------------------------------------------------------------
+
+void processPixels(int[] _pixels, int _height, int _width) {
+  int[] column = new int[_height];
+
+  for (int x = 0; x < _width; x++) {
+    for (int y = 0; y < _height; y++) {
+      column[y] = _pixels[y * _width + x];
     }
 
     if (sortShader) column = thresholdSort(column, thMin, thMax, sortMode);
@@ -272,18 +285,20 @@ void processPixels() {
     if (shiftShader) {
       int amount = round(((bodhranAmplitude+hangAmplitude+kalimbaAmplitude)/3.0) * column.length * (noise(
         0.01 * x,
-        height * frameCount * 0.0001) - 0.5
+        _height * frameCount * 0.0001)-0.5
         ));
       column = shift(column, amount);
     }
 
-    for (int y = 0; y < height; y++) {
-      pixels[y * width + x] = column[y];
+    for (int y = 0; y < _height; y++) {
+      _pixels[y * _width + x] = column[y];
     }
   }
-  updatePixels();
 }
 
+//----------------------------------------------------------------
+
+// different ways in which the threshold for max and min can be used to mask pixels to be sorted
 boolean evalPixel(float value, int min, int max, int mode, boolean out) {
   switch(mode) {
   case 0:
@@ -308,7 +323,7 @@ boolean evalPixel(float value, int min, int max, int mode, boolean out) {
   return false;
 }
 
-
+//----------------------------------------------------------------
 
 // pixelsorting on the main rendering chain
 int[] thresholdSort(int[] pixelArray, int min, int max, int mode) {
@@ -346,6 +361,8 @@ int[] thresholdSort(int[] pixelArray, int min, int max, int mode) {
   return pixelArray;
 }
 
+//----------------------------------------------------------------
+
 int[] shift(int[] array, int amount) {
   int[] shifted = new int[array.length];
   int j = 0;
@@ -355,6 +372,9 @@ int[] shift(int[] array, int amount) {
   }
   return shifted;
 }
+
+//================================================================
+// Shaper functions
 
 float doubleExponentialSigmoid (float x, float a) {
 
@@ -374,6 +394,9 @@ float doubleExponentialSigmoid (float x, float a) {
   return y;
 }
 
+//================================================================
+// Color Management Functions
+
 void updateBlend() {
   if (frameCount - blendStart > blendDuration) {
     activePaletteA = activePaletteB.copy();
@@ -387,6 +410,8 @@ void updateBlend() {
     0.9);
 }
 
+//----------------------------------------------------------------
+
 color getBGColor() {
   return color(
     round(255*lerp(activePaletteA.background[0], activePaletteB.background[0], blend)),
@@ -395,20 +420,12 @@ color getBGColor() {
     );
 }
 
+//----------------------------------------------------------------
+
 float[] getPaletteColor(int index) {
   return new float[]{
     lerp(activePaletteA.pastels[index][0], activePaletteB.pastels[index][0], blend),
     lerp(activePaletteA.pastels[index][1], activePaletteB.pastels[index][1], blend),
     lerp(activePaletteA.pastels[index][2], activePaletteB.pastels[index][2], blend)
   };
-}
-
-void setShaderParams(int i) {
-  float[] pastel = getPaletteColor(i);
-  noiseLayer.set("u_color", pastel[0], pastel[1], pastel[2]);
-  noiseLayer.set("u_time", millis() * 0.0001);
-  noiseLayer.set("u_offset", offset[i]);
-  noiseLayer.set("u_zoom", noiseZoomFactor);
-  noiseLayer.set("u_gain", gain[i]);
-  noiseLayer.set("u_pedistal", 0.0125);
 }

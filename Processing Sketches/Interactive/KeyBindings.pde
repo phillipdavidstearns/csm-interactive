@@ -1,4 +1,4 @@
-  void keyPressed() {
+void keyPressed() {
   switch(key) {
   case ' ':
     activePaletteA = palettes.get(int(random(palettes.size())));

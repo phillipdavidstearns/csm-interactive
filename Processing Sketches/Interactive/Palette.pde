@@ -1,6 +1,11 @@
+//----------------------------------------------------------------
+// Palettes are generated from swatches sampled from specific pastel pieces.
+
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+
+//================================================================
 
 class Palette {
   String name;
@@ -23,6 +28,8 @@ class Palette {
     return new Palette(this.name, this.background, this.pastels);
   }
 
+  //----------------------------------------------------------------
+
   float[][] randomizePastels() {
     ArrayList<float[]> temp = new ArrayList<float[]>(this.pastels.length);
     for (int i = 0; i < this.pastels.length; i++) {
@@ -34,6 +41,8 @@ class Palette {
     }
     return this.pastels;
   }
+
+  //----------------------------------------------------------------
 
   float[] getFlattenedPalette() {
     float[] flattened = new float[this.pastels.length * 4]; // 4 for RGBA
@@ -47,10 +56,13 @@ class Palette {
   }
 }
 
-void loadPalettes() {
-  palettes = new ArrayList<Palette>();
+//================================================================
 
-  palettes.add(new Palette(
+ArrayList<Palette> loadPalettes() {
+
+  ArrayList<Palette> _palettes = new ArrayList<Palette>();
+
+  _palettes.add(new Palette(
     "473",
     new float[]{194/255.0, 173/255.0, 115/255.0}, // background
     new float[][]{
@@ -61,7 +73,7 @@ void loadPalettes() {
       {234/255.0, 232/255.0, 229/255.0} // white
     }));
 
-  palettes.add(new Palette(
+  _palettes.add(new Palette(
     "453",
     new float[]{196/255.0, 91/255.0, 71/255.0}, // background
     new float[][]{
@@ -71,7 +83,7 @@ void loadPalettes() {
       {127/255.0, 145/255.0, 223/255.0} // periwinkle
     }));
 
-  palettes.add(new Palette(
+  _palettes.add(new Palette(
     "444",
     new float[]{203/255.0, 197/255.0, 185/255.0}, // background
     new float[][]{
@@ -81,7 +93,7 @@ void loadPalettes() {
     }
     ));
 
-  palettes.add(new Palette(
+  _palettes.add(new Palette(
     "443",
     new float[]{222/255.0, 195/255.0, 137/255.0}, // background
     new float[][]{
@@ -92,7 +104,7 @@ void loadPalettes() {
       {170/255.0, 189/255.0, 154/255.0} // aqua
     }));
 
-  palettes.add(new Palette(
+  _palettes.add(new Palette(
     "441",
     new float[]{234/255.0, 209/255.0, 155/255.0}, // background
     new float[][]{
@@ -101,7 +113,7 @@ void loadPalettes() {
       {239/255.0, 234/255.0, 232/255.0} // white
     }));
 
-  palettes.add(new Palette(
+  _palettes.add(new Palette(
     "180",
     new float[]{149/255.0, 118/255.0, 145/255.0}, // background
     new float[][]{
@@ -111,7 +123,7 @@ void loadPalettes() {
       {59/255.0, 67/255.0, 61/255.0} // green
     }));
 
-  palettes.add(new Palette(
+  _palettes.add(new Palette(
     "178",
     new float[]{103/255.0, 116/255.0, 146/255.0}, // background
     new float[][]{
@@ -123,7 +135,7 @@ void loadPalettes() {
       {31/255.0, 73/255.0, 155/255.0} // blue
     }));
 
-  palettes.add(new Palette(
+  _palettes.add(new Palette(
     "177",
     new float[]{70/255.0, 64/255.0, 68/255.0}, // background
     new float[][]{
@@ -133,7 +145,7 @@ void loadPalettes() {
       {226/255.0, 225/255.0, 223/255.0} // white
     }));
 
-  palettes.add(new Palette(
+  _palettes.add(new Palette(
     "176",
     new float[]{178/255.0, 57/255.0, 83/255.0}, // background
     new float[][]{
@@ -143,7 +155,7 @@ void loadPalettes() {
       {31/255.0, 29/255.0, 29/255.0} // dark grey
     }));
 
-  palettes.add(new Palette(
+  _palettes.add(new Palette(
     "161",
     new float[]{187/255.0, 93/255.0, 81/255.0}, // background
     new float[][]{
@@ -153,7 +165,7 @@ void loadPalettes() {
       {39/255.0, 35/255.0, 35/255.0} // dark grey
     }));
 
-  palettes.add(new Palette(
+  _palettes.add(new Palette(
     "273",
     new float[]{150/255.0, 162/255.0, 186/255.0}, // background
     new float[][]{
@@ -162,7 +174,7 @@ void loadPalettes() {
       {230/255.0, 212/255.0, 123/255.0} // yellow
     }));
 
-  palettes.add(new Palette(
+  _palettes.add(new Palette(
     "256",
     new float[]{183/255.0, 95/255.0, 66/255.0}, // background
     new float[][]{
@@ -172,7 +184,7 @@ void loadPalettes() {
       {112/255.0, 19/255.0, 15/255.0} // dark red
     }));
 
-  palettes.add(new Palette(
+  _palettes.add(new Palette(
     "151",
     new float[]{61/255.0, 60/255.0, 58/255.0}, // background
     new float[][]{
@@ -182,7 +194,7 @@ void loadPalettes() {
       {239/255.0, 238/255.0, 237/255.0} // white
     }));
 
-  palettes.add(new Palette(
+  _palettes.add(new Palette(
     "120",
     new float[]{61/255.0, 60/255.0, 58/255.0}, // background
     new float[][]{
@@ -192,7 +204,7 @@ void loadPalettes() {
       {239/255.0, 238/255.0, 237/255.0} // white
     }));
 
-  palettes.add(new Palette(
+  _palettes.add(new Palette(
     "119",
     new float[]{200/255.0, 150/255.0, 154/255.0}, // background
     new float[][]{
@@ -205,7 +217,7 @@ void loadPalettes() {
       {42/255.0, 39/255.0, 41/255.0} // black
     }));
 
-  palettes.add(new Palette(
+  _palettes.add(new Palette(
     "339",
     new float[]{146/255.0, 36/255.0, 68/255.0}, // background
     new float[][]{
@@ -214,7 +226,7 @@ void loadPalettes() {
       {63/255.0, 65/255.0, 79/255.0} // grey
     }));
 
-  palettes.add(new Palette(
+  _palettes.add(new Palette(
     "332",
     new float[]{197/255.0, 187/255.0, 166/255.0}, // background
     new float[][]{
@@ -224,7 +236,7 @@ void loadPalettes() {
       {229/255.0, 228/255.0, 228/255.0} // white
     }));
 
-  palettes.add(new Palette(
+  _palettes.add(new Palette(
     "332",
     new float[]{142/255.0, 146/255.0, 140/255.0}, // background
     new float[][]{
@@ -232,4 +244,6 @@ void loadPalettes() {
       {142/255.0, 40/255.0, 20/255.0}, // orange
       {30/255.0, 75/255.0, 177/255.0}, // blue
     }));
+
+  return _palettes;
 }
