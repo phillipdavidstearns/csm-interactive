@@ -7,14 +7,17 @@ precision mediump float;
 uniform vec2 u_resolution;
 uniform float u_time;
 uniform vec3 u_offset;
-uniform float u_zoom;
-// uniform int u_octaves;
-// uniform float u_falloff;
 
-// these inputs are for the individual gain and offsets for each pastel color
+uniform float u_zoom;
+
+// gain and offsets for each pastel color
 uniform float u_gain;
 uniform float u_pedistal;
 uniform vec3 u_color;
+
+// shaping function controls for alpha mask
+uniform float u_center;
+uniform float u_width;
 
 
 //================================================================
@@ -151,7 +154,10 @@ vec2 zoom(vec2 coord, vec2 center, float factor){
 
 void main() {
 
+  // scale the coordinate system and connect aspect ratio "squishing"
   vec2 st = vec2(gl_FragCoord.x/u_resolution.x, gl_FragCoord.y/u_resolution.x);
+
+  // zoom effect acheived by scaling st coordinates
   vec2 noiseZoomCenter = vec2(0.5, 0.5 * u_resolution.y / u_resolution.x);
   st = zoom(st, noiseZoomCenter, u_zoom);
 
@@ -169,7 +175,8 @@ void main() {
 
   float alpha = clamp(fbm(pos1), 0, 1.0);
 
-  vec4 color = vec4(u_color, cubicPulse(alpha*alpha, u_gain + u_pedistal, 0.1));
+  // vec4 color = vec4(u_color, cubicPulse(alpha*alpha, u_gain + u_pedistal, 0.1));
+  vec4 color = vec4(u_color, cubicPulse(alpha*alpha, u_center, u_width));
 
   gl_FragColor = vec4(color);
 }

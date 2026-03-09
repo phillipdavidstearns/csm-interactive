@@ -2,13 +2,17 @@
 
 import processing.sound.*;
 
-//----------------------------------------------------------------
+//================================================================
 
 int qtyInstruments = 3;
+
+//----------------------------------------------------------------
 
 PShader noiseLayer;
 PGraphics pg;
 
+//----------------------------------------------------------------
+// switches for processing
 boolean sortShader = false;
 boolean shiftShader = false;
 boolean shiftSort = false;
@@ -18,13 +22,17 @@ boolean devMode = false;
 boolean preProcess = false;
 boolean postProcess = false;
 
-int threshold = 0;
+//----------------------------------------------------------------
+// value for pixelsorting
+
 int sortMode = 0;
 
 int thMin = 0;
 int thMax = 0;
-float thRatio = 0.0;
+float thCenter = 0.0;
 float thWidth = 0.0;
+
+//----------------------------------------------------------------
 
 InputAnalyzer hang;
 InputAnalyzer bodhran;
@@ -38,20 +46,30 @@ float hangAmplitude = 0.0;
 float kalimbaAmplitude = 0.0;
 float bodhranAmplitude = 0.0;
 
+//----------------------------------------------------------------
+// Color controls
+
+float alpha = 0.0;
 float blend = 0.0;
 float rate = 0.001;
 int blendStart = 0;
 int blendDuration = 1200;
 
+//----------------------------------------------------------------
+
 float[] gain = new float[qtyInstruments];
 PVector[] offset = new PVector[qtyInstruments];
 float noiseZoomFactor;
 float feedbackZoomFactor;
+float alphaCenter = 0.0;
+float alphaWidth =0.0;
 
 // Wall dimensions: 361" x 144" - projector location? distance back?
 // Projector Aspect Ratio: 16:9
 // Distance between projection wall and rear wall: 17' 5" (209")
 // Max Projection Dimensions (16:9): 256" x 144" (~294" diagonal)
+
+//----------------------------------------------------------------
 
 ArrayList<Palette> palettes;
 
@@ -59,15 +77,22 @@ Palette activePaletteA;
 Palette activePaletteB;
 Palette mixedPalette;
 
+//----------------------------------------------------------------
+
+ControlFrame cf;
+
 //================================================================
 
 void setup() {
   pixelDensity(1);
-  fullScreen(P2D, 2);
+  //fullScreen(P2D, 2);
   size(1280, 720, P2D);
   frameRate(30);
   noiseDetail(7, 0.5);
   noStroke();
+  
+  // instantiate the ControlFrame
+  cf = new ControlFrame(this, 400, 800);
 
   palettes = loadPalettes();
   activePaletteA = palettes.get(int(random(palettes.size())));
@@ -123,8 +148,6 @@ void setup() {
 void draw() {
   background(getBGColor());
 
-  updateThresholds();
-
   //read analyzers
 
   bodhranAmplitude = bodhran.getAmplitude();
@@ -136,8 +159,8 @@ void draw() {
   kalimbaAmplitude = kalimba.getAmplitude();
   kalimbaOffset += kalimbaAmplitude;
 
-  feedbackZoomFactor = 1.0 - noise(1, (bodhranAmplitude+hangAmplitude+kalimbaAmplitude)/3);
-  noiseZoomFactor = 5;
+  //feedbackZoomFactor = 1.0 - noise(1, (bodhranAmplitude+hangAmplitude+kalimbaAmplitude)/3);
+  //noiseZoomFactor = 5;
 
   gain[0] = 2.0 * bodhranAmplitude;
   gain[1] = 2.0 * hangAmplitude;
@@ -154,12 +177,14 @@ void draw() {
     pg.beginDraw();
     pg.noStroke();
     pg.loadPixels();
+    
+    // hacky way to add transparency to overlay.
     for (int i = 0; i < pg.pixels.length; i++) {
       pg.pixels[i] = color(
         floor((pg.pixels[i] >> 16 & 0xFF)),
         floor((pg.pixels[i] >> 8 & 0xFF)),
         floor((pg.pixels[i] & 0xFF)),
-        floor((pg.pixels[i] >> 24 & 0xFF) * 0.9)
+        floor((pg.pixels[i] >> 24 & 0xFF) * alpha)
         );
     }
     pg.updatePixels();
@@ -170,7 +195,7 @@ void draw() {
       pg.rect(0, 0, pg.width, pg.height);
       pg.resetShader(); // necessary to maintain layer independence
     }
-
+ 
     pg.endDraw();
     if (preProcess) process(pg);
     image(pg, 0, 0);
@@ -198,6 +223,8 @@ void setShaderParams(int i) {
   noiseLayer.set("u_zoom", noiseZoomFactor);
   noiseLayer.set("u_gain", gain[i]);
   noiseLayer.set("u_pedistal", 0.0125);
+  noiseLayer.set("u_center", alphaCenter);
+  noiseLayer.set("u_width", alphaWidth);
 }
 
 //================================================================
@@ -212,6 +239,7 @@ void showInfo() {
   text("blendStart: " + blendStart, 100, 170);
   text("blendDuration: " + blendDuration, 100, 200);
   text("blend: " + blend, 100, 230);
+  text("noiseZoomFactor: " + noiseZoomFactor, 100, 260);
 
   text("bodhranOffset: " + bodhranOffset, 250, 50);
   text("hangOffset: " + hangOffset, 250, 80);
@@ -238,13 +266,13 @@ void showInfo() {
 //================================================================
 // Pixel Sorting Related Functions
 
-void updateThresholds() {
+void updateThresholds(float _center, float _width) {
 
-  thRatio = 0.5 * (sin(2*PI*frameCount*0.001) + 1);
-  thWidth = 0.5 * (sin(2*PI*frameCount*0.002) + 1);
+  //thCenter = 0.5 * (sin(2*PI*frameCount*0.001) + 1);
+  //thWidth = 0.5 * (sin(2*PI*frameCount*0.002) + 1);
 
-  thMin = round(255 * thRatio * (1 - thWidth));
-  thMax = round(255 * (thRatio * (1 - thWidth) + thWidth));
+  thMin = round(255 * _center * (1 - _width));
+  thMax = round(255 * (_center * (1 - _width) + _width));
 }
 
 //----------------------------------------------------------------
@@ -301,24 +329,24 @@ void processPixels(int[] _pixels, int _height, int _width) {
 // different ways in which the threshold for max and min can be used to mask pixels to be sorted
 boolean evalPixel(float value, int min, int max, int mode, boolean out) {
   switch(mode) {
-  case 0:
-    return out ? value >= min : value < min;
-  case 1:
-    return out ? value >= max : value < max;
-  case 2:
-    return out ? value >= max : value < min;
+  case 0: // pixel values below min
+    return out ? value > min : value <= min;
+  case 1: // pixel values below max
+    return out ? value > max : value <= max;
+  case 2: // start capture pixels below min, stop above max
+    return out ? value > max : value <= min;
 
-  case 3:
-    return out ? value <= min : value > min;
-  case 4:
-    return out ? value <= max : value > max;
-  case 5:
-    return out ? value <= min : value > max;
+  case 3: // pixel values above min
+    return out ? value < min : value >= min;
+  case 4: // pixel values above max
+    return out ? value < max : value >= max;
+  case 5: // start capture pixels above max, stop below min
+    return out ? value < min : value >= max;
 
-  case 6:
-    return out ? value <= min : value < max;
-  case 7:
-    return out ? value >= max : value > min;
+  case 6: // start capture pixels below max, stop capture below min
+    return out ? value < min  || value > max : value <= max && value >= min;
+  case 7:  // start capture pixels below max, stop capture below min
+    return out ? value > min  && value < max : value >= max || value <= min;
   }
   return false;
 }
