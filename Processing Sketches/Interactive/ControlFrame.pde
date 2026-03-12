@@ -203,15 +203,13 @@ void setupControls(PApplet parent, ControlP5 cp5) {
     .setItemsPerRow(8)
     .setSpacingColumn(buffer_h)
     .setLabelPadding(int(-0.5*(unit_w+buffer_w)), int(-0.5*(unit_h)))
-    .addItem("0", 0)
-    .addItem("1", 1)
-    .addItem("2", 2)
-    .addItem("3", 3)
-    .addItem("4", 4)
-    .addItem("5", 5)
-    .addItem("6", 6)
-    .addItem("7", 7)
-    .setArrayValue(new float[]{1, 0, 0, 0, 0, 0, 0, 0})
+    .addItem(">", 0)
+    .addItem(">>", 1)
+    .addItem("<", 2)
+    .addItem("<<", 3)
+    .addItem("<>", 4)
+    .addItem("><", 5)
+    .setArrayValue(0, 1)
     .activate(0)
     ;
 
@@ -251,36 +249,40 @@ void setupControls(PApplet parent, ControlP5 cp5) {
   cp5.getController("alpha_width").getCaptionLabel()
     .align(ControlP5.RIGHT, CENTER)
     ;
-    
+
   //----------------------------------------------------------------
-    
-   cp5.addSlider("noise_zoom")
+
+  cp5.addSlider("noise_zoom")
     .plugTo(parent, "noiseZoomFactor")
     .setPosition(grid_x(0), grid_y(7))
     .setSize(size_w(8), size_h(1))
     .setRange(-5.0, 5.0)
-    .setValue(1.0)
+    .setValue(5.0)
     ;
   cp5.getController("noise_zoom").getCaptionLabel()
     .align(ControlP5.RIGHT, CENTER)
     ;
-
 }
 
 void sort_c(float value) {
   thCenter = value;
-  updateThresholds(thCenter, thWidth);
+  updateThresholds();
   sort_min.setValue(thMin);
   sort_max.setValue(thMax);
+
+  println("thCenter: " + thCenter + ", thWidth: " + thWidth + ", thMin: " + thMin + ", thMax: " + thMax);
 }
 
 void sort_w(float value) {
   thWidth = value;
-  updateThresholds(thCenter, thWidth);
+  updateThresholds();
   sort_min.setValue(thMin);
   sort_max.setValue(thMax);
+
+  println("thCenter: " + thCenter + ", thWidth: " + thWidth + ", thMin: " + thMin + ", thMax: " + thMax);
 }
 
 void sort_mode(int mode) {
   sortMode = max(mode, 0);
+  println("sortMode: " + sortMode);
 }

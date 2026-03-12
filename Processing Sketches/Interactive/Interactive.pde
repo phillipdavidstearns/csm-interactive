@@ -27,6 +27,7 @@ boolean postProcess = false;
 
 int sortMode = 0;
 
+// GLOBALS functions like updateThresholds, thresholdSort and evalPixel
 int thMin = 0;
 int thMax = 0;
 float thCenter = 0.0;
@@ -90,7 +91,7 @@ void setup() {
   frameRate(30);
   noiseDetail(7, 0.5);
   noStroke();
-  
+
   // instantiate the ControlFrame
   cf = new ControlFrame(this, 400, 800);
 
@@ -146,7 +147,7 @@ void setup() {
 //================================================================
 
 void draw() {
-  background(getBGColor());
+  //background(getBGColor(true));
 
   //read analyzers
 
@@ -176,18 +177,20 @@ void draw() {
     // if (sortFeedback) pixelsort(pg, reverseFeedbackSort);
     pg.beginDraw();
     pg.noStroke();
-    pg.loadPixels();
-    
-    // hacky way to add transparency to overlay.
-    for (int i = 0; i < pg.pixels.length; i++) {
-      pg.pixels[i] = color(
-        floor((pg.pixels[i] >> 16 & 0xFF)),
-        floor((pg.pixels[i] >> 8 & 0xFF)),
-        floor((pg.pixels[i] & 0xFF)),
-        floor((pg.pixels[i] >> 24 & 0xFF) * alpha)
-        );
-    }
-    pg.updatePixels();
+    pg.background(getBGColor(true));
+
+    //pg.loadPixels();
+
+    //// hacky way to add transparency to overlay.
+    //for (int i = 0; i < pg.pixels.length; i++) {
+    //  pg.pixels[i] = color(
+    //    (pg.pixels[i] >> 16 & 0xFF),
+    //    (pg.pixels[i] >> 8 & 0xFF),
+    //    (pg.pixels[i] & 0xFF),
+    //    round((pg.pixels[i] >> 24 & 0xFF) * alpha)
+    //    );
+    //}
+    //pg.updatePixels();
 
     for (int i = 0; i < qtyInstruments; i++) {
       setShaderParams(i);
@@ -195,7 +198,7 @@ void draw() {
       pg.rect(0, 0, pg.width, pg.height);
       pg.resetShader(); // necessary to maintain layer independence
     }
- 
+
     pg.endDraw();
     if (preProcess) process(pg);
     image(pg, 0, 0);
@@ -250,7 +253,7 @@ void showInfo() {
 
   noStroke();
 
-  fill(getBGColor());
+  fill(getBGColor(false));
   square(20, 50, 30);
   for (int i = 0; i < qtyInstruments; i++) {
     float[] pastel = getPaletteColor(i);
@@ -266,13 +269,9 @@ void showInfo() {
 //================================================================
 // Pixel Sorting Related Functions
 
-void updateThresholds(float _center, float _width) {
-
-  //thCenter = 0.5 * (sin(2*PI*frameCount*0.001) + 1);
-  //thWidth = 0.5 * (sin(2*PI*frameCount*0.002) + 1);
-
-  thMin = round(255 * _center * (1 - _width));
-  thMax = round(255 * (_center * (1 - _width) + _width));
+void updateThresholds() {
+  thMin = round(255 * thCenter * (1 - thWidth));
+  thMax = round(255 * (thCenter * (1 - thWidth) + thWidth));
 }
 
 //----------------------------------------------------------------
@@ -308,7 +307,7 @@ void processPixels(int[] _pixels, int _height, int _width) {
       column[y] = _pixels[y * _width + x];
     }
 
-    if (sortShader) column = thresholdSort(column, thMin, thMax, sortMode);
+    if (sortShader) column = thresholdSort(column, sortMode);
 
     if (shiftShader) {
       int amount = round(((bodhranAmplitude+hangAmplitude+kalimbaAmplitude)/3.0) * column.length * (noise(
@@ -327,26 +326,20 @@ void processPixels(int[] _pixels, int _height, int _width) {
 //----------------------------------------------------------------
 
 // different ways in which the threshold for max and min can be used to mask pixels to be sorted
-boolean evalPixel(float value, int min, int max, int mode, boolean out) {
-  switch(mode) {
-  case 0: // pixel values below min
-    return out ? value > min : value <= min;
-  case 1: // pixel values below max
-    return out ? value > max : value <= max;
-  case 2: // start capture pixels below min, stop above max
-    return out ? value > max : value <= min;
-
-  case 3: // pixel values above min
-    return out ? value < min : value >= min;
-  case 4: // pixel values above max
-    return out ? value < max : value >= max;
-  case 5: // start capture pixels above max, stop below min
-    return out ? value < min : value >= max;
-
-  case 6: // start capture pixels below max, stop capture below min
-    return out ? value < min  || value > max : value <= max && value >= min;
-  case 7:  // start capture pixels below max, stop capture below min
-    return out ? value > min  && value < max : value >= max || value <= min;
+boolean evalPixel(float _value, int _mode, boolean _flag) {
+  switch(_mode) {
+  case 0: // pixel values below center
+    return _flag ? _value >= round(255 * thCenter) : _value < round(255 * thCenter);
+  case 1: // start capture pixels below min, stop above max
+    return _flag ? _value >= thMax : _value < thMin;
+  case 2: // pixel values above min
+    return _flag ? _value <= round(255 * thCenter): _value > round(255 * thCenter);
+  case 3: // start capture pixels above max, stop below min
+    return _flag ? _value <= thMin : _value > thMax;
+  case 4: // start capture pixels below max, stop capture below min
+    return _flag ? _value <= thMin  || _value >= thMax : _value < thMax && _value > thMin;
+  case 5:  // start capture pixels below max, stop capture below min
+    return _flag ? _value >= thMin  && _value <= thMax : _value > thMax || _value < thMin;
   }
   return false;
 }
@@ -354,7 +347,7 @@ boolean evalPixel(float value, int min, int max, int mode, boolean out) {
 //----------------------------------------------------------------
 
 // pixelsorting on the main rendering chain
-int[] thresholdSort(int[] pixelArray, int min, int max, int mode) {
+int[] thresholdSort(int[] pixelArray, int mode) {
   boolean segmentFlag = false;
   int start = 0;
   int end = 0;
@@ -362,10 +355,10 @@ int[] thresholdSort(int[] pixelArray, int min, int max, int mode) {
   for (int i = 0; i < pixelArray.length; i++) {
     value = brightness(pixelArray[i]);
 
-    if (!segmentFlag && evalPixel(value, min, max, mode, segmentFlag)) {
+    if (!segmentFlag && evalPixel(value, mode, segmentFlag)) {
       start = i;
       segmentFlag = true;
-    } else if (segmentFlag && (evalPixel(value, min, max, mode, segmentFlag) || i == pixelArray.length - 1)) {
+    } else if (segmentFlag && (evalPixel(value, mode, segmentFlag) || i == pixelArray.length - 1)) {
       end = i;
       segmentFlag = false;
       int[] chunk = new int[end-start];
@@ -440,11 +433,12 @@ void updateBlend() {
 
 //----------------------------------------------------------------
 
-color getBGColor() {
+color getBGColor(boolean _alphaMode) {
   return color(
     round(255*lerp(activePaletteA.background[0], activePaletteB.background[0], blend)),
     round(255*lerp(activePaletteA.background[1], activePaletteB.background[1], blend)),
-    round(255*lerp(activePaletteA.background[2], activePaletteB.background[2], blend))
+    round(255*lerp(activePaletteA.background[2], activePaletteB.background[2], blend)),
+    _alphaMode ? round(255 * alpha) : 255
     );
 }
 
