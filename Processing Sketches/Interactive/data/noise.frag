@@ -1,3 +1,5 @@
+#define PROCESSING_COLOR_SHADER
+
 #ifdef GL_ES
 precision mediump float;
 #endif
@@ -11,8 +13,6 @@ uniform vec3 u_offset;
 uniform float u_zoom;
 
 // gain and offsets for each pastel color
-uniform float u_gain;
-uniform float u_pedistal;
 uniform vec3 u_color;
 
 // shaping function controls for alpha mask
@@ -175,7 +175,6 @@ void main() {
 
   float alpha = clamp(fbm(pos1), 0, 1.0);
 
-  // vec4 color = vec4(u_color, cubicPulse(alpha*alpha, u_gain + u_pedistal, 0.1));
   vec4 color = vec4(u_color, cubicPulse(alpha*alpha, u_center, u_width));
 
   gl_FragColor = vec4(color);

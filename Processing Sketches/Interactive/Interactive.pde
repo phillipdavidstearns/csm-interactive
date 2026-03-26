@@ -9,6 +9,7 @@ int qtyInstruments = 3;
 //----------------------------------------------------------------
 
 PShader noiseLayer;
+PShader feedbackLayer;
 PGraphics pg;
 
 //----------------------------------------------------------------
@@ -21,6 +22,8 @@ boolean reverseSort= false;
 boolean devMode = false;
 boolean preProcess = false;
 boolean postProcess = false;
+
+boolean cloudFlag = false;
 
 //----------------------------------------------------------------
 // value for pixelsorting
@@ -50,7 +53,6 @@ float bodhranAmplitude = 0.0;
 //----------------------------------------------------------------
 // Color controls
 
-float alpha = 0.0;
 float blend = 0.0;
 float rate = 0.001;
 int blendStart = 0;
@@ -63,7 +65,9 @@ PVector[] offset = new PVector[qtyInstruments];
 float noiseZoomFactor;
 float feedbackZoomFactor;
 float alphaCenter = 0.0;
-float alphaWidth =0.0;
+float alphaWidth = 0.0;
+
+float feedbackAlpha = 0.0;
 
 // Wall dimensions: 361" x 144" - projector location? distance back?
 // Projector Aspect Ratio: 16:9
@@ -101,10 +105,13 @@ void setup() {
   activePaletteB = palettes.get(int(random(palettes.size())));
   activePaletteB.randomizePastels();
 
-  // Load and compile shader
+  // Load and compile noise shader
   noiseLayer = loadShader("noise.frag");
   // We only have to set resolution once
   noiseLayer.set("u_resolution", float(width), float(height));
+
+  feedbackLayer = loadShader("feedback.frag");
+  //feedbackLayer.set("u_resolution", float(width), float(height));
 
   // Create an off-screen rendering context
   pg = createGraphics(width, height, P2D);
@@ -147,7 +154,6 @@ void setup() {
 //================================================================
 
 void draw() {
-  //background(getBGColor(true));
 
   //read analyzers
 
@@ -174,23 +180,19 @@ void draw() {
   // Set uniforms
 
   if (pg != null) {
+
     // if (sortFeedback) pixelsort(pg, reverseFeedbackSort);
     pg.beginDraw();
     pg.noStroke();
-    pg.background(getBGColor(true));
 
-    //pg.loadPixels();
+    background(getBGColor());
 
-    //// hacky way to add transparency to overlay.
-    //for (int i = 0; i < pg.pixels.length; i++) {
-    //  pg.pixels[i] = color(
-    //    (pg.pixels[i] >> 16 & 0xFF),
-    //    (pg.pixels[i] >> 8 & 0xFF),
-    //    (pg.pixels[i] & 0xFF),
-    //    round((pg.pixels[i] >> 24 & 0xFF) * alpha)
-    //    );
-    //}
-    //pg.updatePixels();
+    feedbackLayer.set("u_alpha", feedbackAlpha);
+    feedbackLayer.set("u_feedbackZoom", feedbackZoomFactor);
+    feedbackLayer.set("u_centerX", mouseX/float(width));
+    feedbackLayer.set("u_centerY", 1 - mouseY/float(height));
+    pg.shader(feedbackLayer);
+    pg.image(pg, 0, 0);
 
     for (int i = 0; i < qtyInstruments; i++) {
       setShaderParams(i);
@@ -199,8 +201,15 @@ void draw() {
       pg.resetShader(); // necessary to maintain layer independence
     }
 
+    //draw crosshairs
+    //pg.stroke(255);
+    //pg.line(0, mouseY, width, mouseY);
+    //pg.line(mouseX, 0, mouseX, height);
+
     pg.endDraw();
+
     if (preProcess) process(pg);
+
     image(pg, 0, 0);
   }
 
@@ -209,11 +218,6 @@ void draw() {
   if (devMode) showInfo();
 
   updateBlend();
-
-  // draw white crosshairs
-  //stroke(255);
-  //line(0, height/2.0, width, height/2.0);
-  //line(width/2.0, 0, width/2.0, height);
 }
 
 //================================================================
@@ -224,8 +228,6 @@ void setShaderParams(int i) {
   noiseLayer.set("u_time", millis() * 0.0001);
   noiseLayer.set("u_offset", offset[i]);
   noiseLayer.set("u_zoom", noiseZoomFactor);
-  noiseLayer.set("u_gain", gain[i]);
-  noiseLayer.set("u_pedistal", 0.0125);
   noiseLayer.set("u_center", alphaCenter);
   noiseLayer.set("u_width", alphaWidth);
 }
@@ -253,7 +255,7 @@ void showInfo() {
 
   noStroke();
 
-  fill(getBGColor(false));
+  fill(getBGColor());
   square(20, 50, 30);
   for (int i = 0; i < qtyInstruments; i++) {
     float[] pastel = getPaletteColor(i);
@@ -433,12 +435,11 @@ void updateBlend() {
 
 //----------------------------------------------------------------
 
-color getBGColor(boolean _alphaMode) {
+color getBGColor() {
   return color(
     round(255*lerp(activePaletteA.background[0], activePaletteB.background[0], blend)),
     round(255*lerp(activePaletteA.background[1], activePaletteB.background[1], blend)),
-    round(255*lerp(activePaletteA.background[2], activePaletteB.background[2], blend)),
-    _alphaMode ? round(255 * alpha) : 255
+    round(255*lerp(activePaletteA.background[2], activePaletteB.background[2], blend))
     );
 }
 

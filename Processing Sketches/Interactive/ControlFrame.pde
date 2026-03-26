@@ -196,7 +196,7 @@ void setupControls(PApplet parent, ControlP5 cp5) {
   //----------------------------------------------------------------
   // selects the evaluation mode for calculating the mask used for pixel sorting
 
-  cp5.addRadioButton("sort_mode")
+  sortModeRadio = cp5.addRadioButton("sort_mode")
     .plugTo(parent, "sort_mode")
     .setPosition(grid_x(0), grid_y(3))
     .setSize(size_w(1), size_h(1))
@@ -209,21 +209,6 @@ void setupControls(PApplet parent, ControlP5 cp5) {
     .addItem("<<", 3)
     .addItem("<>", 4)
     .addItem("><", 5)
-    .setArrayValue(0, 1)
-    .activate(0)
-    ;
-
-  //----------------------------------------------------------------
-
-  cp5.addSlider("alpha_amount")
-    .plugTo(parent, "alpha")
-    .setPosition(grid_x(0), grid_y(4))
-    .setSize(size_w(8), size_h(1))
-    .setRange(0, 255)
-    .setValue(250)
-    ;
-  cp5.getController("alpha_amount").getCaptionLabel()
-    .align(ControlP5.RIGHT, CENTER)
     ;
 
   //----------------------------------------------------------------
@@ -233,7 +218,7 @@ void setupControls(PApplet parent, ControlP5 cp5) {
     .setPosition(grid_x(0), grid_y(5))
     .setSize(size_w(8), size_h(1))
     .setRange(0, 1.0)
-    .setValue(0.9)
+    .setValue(0.05)
     ;
   cp5.getController("alpha_center").getCaptionLabel()
     .align(ControlP5.RIGHT, CENTER)
@@ -244,7 +229,7 @@ void setupControls(PApplet parent, ControlP5 cp5) {
     .setPosition(grid_x(0), grid_y(6))
     .setSize(size_w(8), size_h(1))
     .setRange(0, 1.0)
-    .setValue(0.9)
+    .setValue(0.10)
     ;
   cp5.getController("alpha_width").getCaptionLabel()
     .align(ControlP5.RIGHT, CENTER)
@@ -262,6 +247,30 @@ void setupControls(PApplet parent, ControlP5 cp5) {
   cp5.getController("noise_zoom").getCaptionLabel()
     .align(ControlP5.RIGHT, CENTER)
     ;
+
+  //----------------------------------------------------------------
+
+  cp5.addSlider("feedback_zoom")
+    .plugTo(parent, "feedbackZoomFactor")
+    .setPosition(grid_x(0), grid_y(8))
+    .setSize(size_w(8), size_h(1))
+    .setRange(0.75, 1.25)
+    .setValue(1.025)
+    ;
+  cp5.getController("feedback_zoom").getCaptionLabel()
+    .align(ControlP5.RIGHT, CENTER)
+    ;
+
+  cp5.addSlider("feedback_alpha")
+    .plugTo(parent, "feedbackAlpha")
+    .setPosition(grid_x(0), grid_y(9))
+    .setSize(size_w(8), size_h(1))
+    .setRange(0.0, 1.0)
+    .setValue(0.5)
+    ;
+  cp5.getController("feedback_alpha").getCaptionLabel()
+    .align(ControlP5.RIGHT, CENTER)
+    ;
 }
 
 void sort_c(float value) {
@@ -269,8 +278,7 @@ void sort_c(float value) {
   updateThresholds();
   sort_min.setValue(thMin);
   sort_max.setValue(thMax);
-
-  println("thCenter: " + thCenter + ", thWidth: " + thWidth + ", thMin: " + thMin + ", thMax: " + thMax);
+  //println("thCenter: " + thCenter + ", thWidth: " + thWidth + ", thMin: " + thMin + ", thMax: " + thMax);
 }
 
 void sort_w(float value) {
@@ -278,11 +286,11 @@ void sort_w(float value) {
   updateThresholds();
   sort_min.setValue(thMin);
   sort_max.setValue(thMax);
-
-  println("thCenter: " + thCenter + ", thWidth: " + thWidth + ", thMin: " + thMin + ", thMax: " + thMax);
+  //println("thCenter: " + thCenter + ", thWidth: " + thWidth + ", thMin: " + thMin + ", thMax: " + thMax);
 }
 
 void sort_mode(int mode) {
-  sortMode = max(mode, 0);
-  println("sortMode: " + sortMode);
+  sortMode = mode;
+  sortShader = sortMode >= 0;
+  //println("sortMode: " + sortMode);
 }
