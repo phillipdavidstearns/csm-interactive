@@ -19,6 +19,10 @@ uniform vec3 u_color;
 uniform float u_center;
 uniform float u_width;
 
+// for brightening edges of clouds and darkening centers
+uniform float u_darken;
+uniform float u_brighten;
+
 
 //================================================================
 // Noise functions By Morgan McGuire @morgan3d, http://graphicscodex.com
@@ -175,7 +179,11 @@ void main() {
 
   float alpha = clamp(fbm(pos1), 0, 1.0);
 
-  vec4 color = vec4(u_color, cubicPulse(alpha*alpha, u_center, u_width));
+  vec3 darker = u_color * (1 - u_darken * (cubicPulse(alpha*alpha, u_center, u_width)));
+
+  vec3 brighter = clamp(darker + u_brighten * (1 - cubicPulse(alpha*alpha, u_center, u_width)), 0, 1.0);
+
+  vec4 color = vec4(brighter, cubicPulse(alpha*alpha, u_center, u_width));
 
   gl_FragColor = vec4(color);
 }

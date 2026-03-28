@@ -68,6 +68,8 @@ float alphaCenter = 0.0;
 float alphaWidth = 0.0;
 
 float feedbackAlpha = 0.0;
+float darkenAmount = 0.0;
+float brightenAmount = 0.0;
 
 // Wall dimensions: 361" x 144" - projector location? distance back?
 // Projector Aspect Ratio: 16:9
@@ -230,6 +232,8 @@ void setShaderParams(int i) {
   noiseLayer.set("u_zoom", noiseZoomFactor);
   noiseLayer.set("u_center", alphaCenter);
   noiseLayer.set("u_width", alphaWidth);
+  noiseLayer.set("u_darken", darkenAmount);
+  noiseLayer.set("u_brighten", brightenAmount);
 }
 
 //================================================================

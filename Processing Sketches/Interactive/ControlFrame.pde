@@ -229,7 +229,7 @@ void setupControls(PApplet parent, ControlP5 cp5) {
     .setPosition(grid_x(0), grid_y(6))
     .setSize(size_w(8), size_h(1))
     .setRange(0, 1.0)
-    .setValue(0.10)
+    .setValue(0.20)
     ;
   cp5.getController("alpha_width").getCaptionLabel()
     .align(ControlP5.RIGHT, CENTER)
@@ -255,7 +255,7 @@ void setupControls(PApplet parent, ControlP5 cp5) {
     .setPosition(grid_x(0), grid_y(8))
     .setSize(size_w(8), size_h(1))
     .setRange(0.75, 1.25)
-    .setValue(1.025)
+    .setValue(1.125)
     ;
   cp5.getController("feedback_zoom").getCaptionLabel()
     .align(ControlP5.RIGHT, CENTER)
@@ -266,9 +266,33 @@ void setupControls(PApplet parent, ControlP5 cp5) {
     .setPosition(grid_x(0), grid_y(9))
     .setSize(size_w(8), size_h(1))
     .setRange(0.0, 1.0)
-    .setValue(0.5)
+    .setValue(0.25)
     ;
   cp5.getController("feedback_alpha").getCaptionLabel()
+    .align(ControlP5.RIGHT, CENTER)
+    ;
+
+  //----------------------------------------------------------------
+
+  cp5.addSlider("darken_amount")
+    .plugTo(parent, "darkenAmount")
+    .setPosition(grid_x(0), grid_y(10))
+    .setSize(size_w(8), size_h(1))
+    .setRange(0.0, 1.0)
+    .setValue(0.30)
+    ;
+  cp5.getController("darken_amount").getCaptionLabel()
+    .align(ControlP5.RIGHT, CENTER)
+    ;
+
+  cp5.addSlider("brighten_amount")
+    .plugTo(parent, "brightenAmount")
+    .setPosition(grid_x(0), grid_y(11))
+    .setSize(size_w(8), size_h(1))
+    .setRange(0.0, 1.0)
+    .setValue(0.30)
+    ;
+  cp5.getController("brighten_amount").getCaptionLabel()
     .align(ControlP5.RIGHT, CENTER)
     ;
 }
