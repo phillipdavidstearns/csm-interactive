@@ -2,18 +2,13 @@
 
 import processing.sound.*;
 
-//================================================================
+//----------------------------------------------------------------
 
 int qtyInstruments = 3;
 
-//----------------------------------------------------------------
-
 PShader noiseLayer;
-PShader feedbackLayer;
 PGraphics pg;
 
-//----------------------------------------------------------------
-// switches for processing
 boolean sortShader = false;
 boolean shiftShader = false;
 boolean shiftSort = false;
@@ -23,20 +18,13 @@ boolean devMode = false;
 boolean preProcess = false;
 boolean postProcess = false;
 
-boolean cloudFlag = false;
-
-//----------------------------------------------------------------
-// value for pixelsorting
-
+int threshold = 0;
 int sortMode = 0;
 
-// GLOBALS functions like updateThresholds, thresholdSort and evalPixel
 int thMin = 0;
 int thMax = 0;
-float thCenter = 0.0;
+float thRatio = 0.0;
 float thWidth = 0.0;
-
-//----------------------------------------------------------------
 
 InputAnalyzer hang;
 InputAnalyzer bodhran;
@@ -50,34 +38,20 @@ float hangAmplitude = 0.0;
 float kalimbaAmplitude = 0.0;
 float bodhranAmplitude = 0.0;
 
-//----------------------------------------------------------------
-// Color controls
-
 float blend = 0.0;
 float rate = 0.001;
 int blendStart = 0;
 int blendDuration = 1200;
 
-//----------------------------------------------------------------
-
 float[] gain = new float[qtyInstruments];
 PVector[] offset = new PVector[qtyInstruments];
 float noiseZoomFactor;
 float feedbackZoomFactor;
-float alphaCenter = 0.0;
-float alphaWidth = 0.0;
-
-float feedbackAlpha = 0.0;
-float darkenAmount = 0.0;
-float brightenAmount = 0.0;
-float fbmWarp = 0.0;
 
 // Wall dimensions: 361" x 144" - projector location? distance back?
 // Projector Aspect Ratio: 16:9
 // Distance between projection wall and rear wall: 17' 5" (209")
 // Max Projection Dimensions (16:9): 256" x 144" (~294" diagonal)
-
-//----------------------------------------------------------------
 
 ArrayList<Palette> palettes;
 
@@ -85,22 +59,15 @@ Palette activePaletteA;
 Palette activePaletteB;
 Palette mixedPalette;
 
-//----------------------------------------------------------------
-
-ControlFrame cf;
-
 //================================================================
 
 void setup() {
   pixelDensity(1);
   fullScreen(P2D, 2);
-  //size(1280, 720, P2D);
+  size(1280, 720, P2D);
   frameRate(30);
   noiseDetail(7, 0.5);
   noStroke();
-
-  // instantiate the ControlFrame
-  cf = new ControlFrame(this, 400, 800);
 
   palettes = loadPalettes();
   activePaletteA = palettes.get(int(random(palettes.size())));
@@ -108,13 +75,10 @@ void setup() {
   activePaletteB = palettes.get(int(random(palettes.size())));
   activePaletteB.randomizePastels();
 
-  // Load and compile noise shader
+  // Load and compile shader
   noiseLayer = loadShader("noise.frag");
   // We only have to set resolution once
   noiseLayer.set("u_resolution", float(width), float(height));
-
-  feedbackLayer = loadShader("feedback.frag");
-  //feedbackLayer.set("u_resolution", float(width), float(height));
 
   // Create an off-screen rendering context
   pg = createGraphics(width, height, P2D);
@@ -157,6 +121,9 @@ void setup() {
 //================================================================
 
 void draw() {
+  background(getBGColor());
+
+  updateThresholds();
 
   //read analyzers
 
@@ -169,8 +136,8 @@ void draw() {
   kalimbaAmplitude = kalimba.getAmplitude();
   kalimbaOffset += kalimbaAmplitude;
 
-  //feedbackZoomFactor = 1.0 - noise(1, (bodhranAmplitude+hangAmplitude+kalimbaAmplitude)/3);
-  //noiseZoomFactor = 5;
+  feedbackZoomFactor = 1.0 - noise(1, (bodhranAmplitude+hangAmplitude+kalimbaAmplitude)/3);
+  noiseZoomFactor = 5;
 
   gain[0] = 2.0 * bodhranAmplitude;
   gain[1] = 2.0 * hangAmplitude;
@@ -183,19 +150,19 @@ void draw() {
   // Set uniforms
 
   if (pg != null) {
-
     // if (sortFeedback) pixelsort(pg, reverseFeedbackSort);
     pg.beginDraw();
     pg.noStroke();
-
-    background(getBGColor());
-
-    feedbackLayer.set("u_alpha", feedbackAlpha);
-    feedbackLayer.set("u_feedbackZoom", feedbackZoomFactor);
-    feedbackLayer.set("u_centerX", mouseX/float(width));
-    feedbackLayer.set("u_centerY", 1 - mouseY/float(height));
-    pg.shader(feedbackLayer);
-    pg.image(pg, 0, 0);
+    pg.loadPixels();
+    for (int i = 0; i < pg.pixels.length; i++) {
+      pg.pixels[i] = color(
+        floor((pg.pixels[i] >> 16 & 0xFF)),
+        floor((pg.pixels[i] >> 8 & 0xFF)),
+        floor((pg.pixels[i] & 0xFF)),
+        floor((pg.pixels[i] >> 24 & 0xFF) * 0.9)
+        );
+    }
+    pg.updatePixels();
 
     for (int i = 0; i < qtyInstruments; i++) {
       setShaderParams(i);
@@ -204,15 +171,8 @@ void draw() {
       pg.resetShader(); // necessary to maintain layer independence
     }
 
-    //draw crosshairs
-    //pg.stroke(255);
-    //pg.line(0, mouseY, width, mouseY);
-    //pg.line(mouseX, 0, mouseX, height);
-
     pg.endDraw();
-
     if (preProcess) process(pg);
-
     image(pg, 0, 0);
   }
 
@@ -221,6 +181,11 @@ void draw() {
   if (devMode) showInfo();
 
   updateBlend();
+
+  // draw white crosshairs
+  //stroke(255);
+  //line(0, height/2.0, width, height/2.0);
+  //line(width/2.0, 0, width/2.0, height);
 }
 
 //================================================================
@@ -231,11 +196,8 @@ void setShaderParams(int i) {
   noiseLayer.set("u_time", millis() * 0.0001);
   noiseLayer.set("u_offset", offset[i]);
   noiseLayer.set("u_zoom", noiseZoomFactor);
-  noiseLayer.set("u_center", alphaCenter);
-  noiseLayer.set("u_width", alphaWidth);
-  noiseLayer.set("u_darken", darkenAmount);
-  noiseLayer.set("u_brighten", brightenAmount);
-  noiseLayer.set("u_warp", fbmWarp);
+  noiseLayer.set("u_gain", gain[i]);
+  noiseLayer.set("u_pedistal", 0.0125);
 }
 
 //================================================================
@@ -250,7 +212,6 @@ void showInfo() {
   text("blendStart: " + blendStart, 100, 170);
   text("blendDuration: " + blendDuration, 100, 200);
   text("blend: " + blend, 100, 230);
-  text("noiseZoomFactor: " + noiseZoomFactor, 100, 260);
 
   text("bodhranOffset: " + bodhranOffset, 250, 50);
   text("hangOffset: " + hangOffset, 250, 80);
@@ -278,8 +239,12 @@ void showInfo() {
 // Pixel Sorting Related Functions
 
 void updateThresholds() {
-  thMin = round(255 * thCenter * (1 - thWidth));
-  thMax = round(255 * (thCenter * (1 - thWidth) + thWidth));
+
+  thRatio = 0.5 * (sin(2*PI*frameCount*0.001) + 1);
+  thWidth = 0.5 * (sin(2*PI*frameCount*0.002) + 1);
+
+  thMin = round(255 * thRatio * (1 - thWidth));
+  thMax = round(255 * (thRatio * (1 - thWidth) + thWidth));
 }
 
 //----------------------------------------------------------------
@@ -315,7 +280,7 @@ void processPixels(int[] _pixels, int _height, int _width) {
       column[y] = _pixels[y * _width + x];
     }
 
-    if (sortShader) column = thresholdSort(column, sortMode);
+    if (sortShader) column = thresholdSort(column, thMin, thMax, sortMode);
 
     if (shiftShader) {
       int amount = round(((bodhranAmplitude+hangAmplitude+kalimbaAmplitude)/3.0) * column.length * (noise(
@@ -334,20 +299,26 @@ void processPixels(int[] _pixels, int _height, int _width) {
 //----------------------------------------------------------------
 
 // different ways in which the threshold for max and min can be used to mask pixels to be sorted
-boolean evalPixel(float _value, int _mode, boolean _flag) {
-  switch(_mode) {
-  case 0: // pixel values below center
-    return _flag ? _value >= round(255 * thCenter) : _value < round(255 * thCenter);
-  case 1: // start capture pixels below min, stop above max
-    return _flag ? _value >= thMax : _value < thMin;
-  case 2: // pixel values above min
-    return _flag ? _value <= round(255 * thCenter): _value > round(255 * thCenter);
-  case 3: // start capture pixels above max, stop below min
-    return _flag ? _value <= thMin : _value > thMax;
-  case 4: // start capture pixels below max, stop capture below min
-    return _flag ? _value <= thMin  || _value >= thMax : _value < thMax && _value > thMin;
-  case 5:  // start capture pixels below max, stop capture below min
-    return _flag ? _value >= thMin  && _value <= thMax : _value > thMax || _value < thMin;
+boolean evalPixel(float value, int min, int max, int mode, boolean out) {
+  switch(mode) {
+  case 0:
+    return out ? value >= min : value < min;
+  case 1:
+    return out ? value >= max : value < max;
+  case 2:
+    return out ? value >= max : value < min;
+
+  case 3:
+    return out ? value <= min : value > min;
+  case 4:
+    return out ? value <= max : value > max;
+  case 5:
+    return out ? value <= min : value > max;
+
+  case 6:
+    return out ? value <= min : value < max;
+  case 7:
+    return out ? value >= max : value > min;
   }
   return false;
 }
@@ -355,7 +326,7 @@ boolean evalPixel(float _value, int _mode, boolean _flag) {
 //----------------------------------------------------------------
 
 // pixelsorting on the main rendering chain
-int[] thresholdSort(int[] pixelArray, int mode) {
+int[] thresholdSort(int[] pixelArray, int min, int max, int mode) {
   boolean segmentFlag = false;
   int start = 0;
   int end = 0;
@@ -363,10 +334,10 @@ int[] thresholdSort(int[] pixelArray, int mode) {
   for (int i = 0; i < pixelArray.length; i++) {
     value = brightness(pixelArray[i]);
 
-    if (!segmentFlag && evalPixel(value, mode, segmentFlag)) {
+    if (!segmentFlag && evalPixel(value, min, max, mode, segmentFlag)) {
       start = i;
       segmentFlag = true;
-    } else if (segmentFlag && (evalPixel(value, mode, segmentFlag) || i == pixelArray.length - 1)) {
+    } else if (segmentFlag && (evalPixel(value, min, max, mode, segmentFlag) || i == pixelArray.length - 1)) {
       end = i;
       segmentFlag = false;
       int[] chunk = new int[end-start];

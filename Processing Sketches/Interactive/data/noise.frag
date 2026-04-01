@@ -11,6 +11,7 @@ uniform float u_time;
 uniform vec3 u_offset;
 
 uniform float u_zoom;
+uniform float u_warp;
 
 // gain and offsets for each pastel color
 uniform vec3 u_color;
@@ -106,7 +107,7 @@ float fbm(vec2 x) {
   float a = 0.5;
   vec2 shift = vec2(100.0);
   // Rotate to reduce axial bias
-  mat2 rot = mat2(cos(0.5), sin(0.5), -sin(0.5), cos(0.50));
+  mat2 rot = mat2(cos(0.5), sin(0.5), -sin(0.5), cos(0.5));
   for (int i = 0; i < NUM_NOISE_OCTAVES; ++i) {
     v += a * noise(x);
     x = rot * x * 2.0 + shift;
@@ -165,15 +166,40 @@ void main() {
   vec2 noiseZoomCenter = vec2(0.5, 0.5 * u_resolution.y / u_resolution.x);
   st = zoom(st, noiseZoomCenter, u_zoom);
 
+  // this shifts the st coordinates by a fixed amount, u_time moves in z axis
+  // produces an 2D fbm noise map
   vec2 q = vec2(0.0);
-  q.x = fbm( st + 0.01 * u_time);
-  q.y = fbm( st + vec2(-3.70,2.705) - 0.01 * u_time);
 
+  q.x = fbm( vec3(
+    st.x - 1.013,
+    st.y + 0.512,
+    0.01 * u_time
+  ));
+
+  q.y = fbm( vec3(
+    st.x + 2.705,
+    st.y - 3.561,
+    0.01 * u_time
+  ));
+
+  // again, u_time moves in z axis
+  // uses the above fbm as a warped ST domain 2D fbm noise map
   vec2 r = vec2(0.0);
-  r.x = fbm( st + 1.0 * q + vec2(-1.570,2.430) + 0.01 * u_time);
-  r.y = fbm( st + 1.0 * q + vec2(3.600,-4.610) + 0.01 * u_time);
 
-  st += r;
+  r.x = fbm( vec3(
+    st.x + u_warp * q.x,
+    st.y + u_warp * q.y,
+    0.01 * u_time
+  ));
+
+  r.y = fbm( vec3(
+    st.x + u_warp * q.x,
+    st.y + u_warp * q.y,
+    0.01 * u_time
+  ));
+
+  //warp the original coordinates by multiplying by the warped domain
+  st *= r;
 
   vec3 pos1 = vec3(u_offset.x + st.x, u_offset.y + st.y, u_offset.z );
 

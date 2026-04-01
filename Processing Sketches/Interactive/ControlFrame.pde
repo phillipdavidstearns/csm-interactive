@@ -229,7 +229,7 @@ void setupControls(PApplet parent, ControlP5 cp5) {
     .setPosition(grid_x(0), grid_y(6))
     .setSize(size_w(8), size_h(1))
     .setRange(0, 1.0)
-    .setValue(0.20)
+    .setValue(0.15)
     ;
   cp5.getController("alpha_width").getCaptionLabel()
     .align(ControlP5.RIGHT, CENTER)
@@ -279,7 +279,7 @@ void setupControls(PApplet parent, ControlP5 cp5) {
     .setPosition(grid_x(0), grid_y(10))
     .setSize(size_w(8), size_h(1))
     .setRange(0.0, 1.0)
-    .setValue(0.30)
+    .setValue(0.20)
     ;
   cp5.getController("darken_amount").getCaptionLabel()
     .align(ControlP5.RIGHT, CENTER)
@@ -290,9 +290,22 @@ void setupControls(PApplet parent, ControlP5 cp5) {
     .setPosition(grid_x(0), grid_y(11))
     .setSize(size_w(8), size_h(1))
     .setRange(0.0, 1.0)
-    .setValue(0.30)
+    .setValue(0.20)
     ;
   cp5.getController("brighten_amount").getCaptionLabel()
+    .align(ControlP5.RIGHT, CENTER)
+    ;
+
+  //----------------------------------------------------------------
+
+  cp5.addSlider("fbm_warp")
+    .plugTo(parent, "fbmWarp")
+    .setPosition(grid_x(0), grid_y(12))
+    .setSize(size_w(8), size_h(1))
+    .setRange(-5.0, 5.0)
+    .setValue(3.25)
+    ;
+  cp5.getController("fbm_warp").getCaptionLabel()
     .align(ControlP5.RIGHT, CENTER)
     ;
 }
