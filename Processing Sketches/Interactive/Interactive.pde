@@ -19,7 +19,7 @@ boolean shiftShader = false;
 boolean shiftSort = false;
 boolean sortFeedback = false;
 boolean reverseSort= false;
-boolean devMode = false;
+boolean devMode = true;
 boolean preProcess = false;
 boolean postProcess = false;
 
