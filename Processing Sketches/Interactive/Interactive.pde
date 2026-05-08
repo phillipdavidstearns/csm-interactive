@@ -93,6 +93,9 @@ ControlFrame cf;
 
 Mass mass = new Mass();
 
+float ampSum = 0.0;
+float ampSumFalloff = 0.5;
+
 //================================================================
 
 void setup() {
@@ -166,7 +169,7 @@ void draw() {
 
   bodhranAmplitude = bodhran.getAmplitude();
   bodhranOffset += bodhranAmplitude;
-  if (bodhran.isBeat()) mass.addForce(new PVector(0.0,0.0, bodhranAmplitude * 1000));
+  if (bodhran.isBeat()) mass.addForce(new PVector(0.0, 0.0, bodhranAmplitude * 1000));
 
   hangAmplitude = hang.getAmplitude();
   hangOffset += hangAmplitude;
@@ -175,8 +178,6 @@ void draw() {
   kalimbaAmplitude = kalimba.getAmplitude();
   kalimbaOffset += kalimbaAmplitude;
   if (kalimba.isBeat()) mass.addForce(new PVector(kalimbaAmplitude * 1000, 0.0, 0.0));
-  
-  
 
   //feedbackZoomFactor = 1.0 - noise(1, (bodhranAmplitude+hangAmplitude+kalimbaAmplitude)/3);
   //noiseZoomFactor = 5;
@@ -200,9 +201,6 @@ void draw() {
     background(getBGColor());
 
     feedbackLayer.set("u_alpha", feedbackAlpha);
-    //feedbackLayer.set("u_feedbackZoom", feedbackZoomFactor);
-    //feedbackLayer.set("u_centerX", mouseX/float(width));
-    //feedbackLayer.set("u_centerY", 1 - mouseY/float(height));
     feedbackLayer.set("u_feedbackZoom", mass.loc.z);
     feedbackLayer.set("u_centerX", mass.loc.x);
     feedbackLayer.set("u_centerY", mass.loc.y);
@@ -233,7 +231,7 @@ void draw() {
   if (devMode) showInfo();
 
   updateBlend();
-  
+
   mass.update();
 }
 
