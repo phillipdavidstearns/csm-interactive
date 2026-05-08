@@ -31,11 +31,5 @@ void keyPressed() {
   case 'P':
     postProcess = !postProcess;
     break;
-  case 'b':
-    mass.addForce( new PVector(
-        random(-100,100),
-        random(-100,100),
-        random(-100,100)
-    ));
   }
 }

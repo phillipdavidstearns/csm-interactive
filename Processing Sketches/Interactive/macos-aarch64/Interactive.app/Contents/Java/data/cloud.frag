@@ -1,31 +1,13 @@
-#define PROCESSING_COLOR_SHADER
+// Author: Inigo Quiles
+// Title: Cubic Pulse
 
 #ifdef GL_ES
 precision mediump float;
 #endif
 
-// #define PROCESSING_COLOR_SHADER
-
 uniform vec2 u_resolution;
+uniform vec2 u_mouse;
 uniform float u_time;
-uniform vec3 u_offset;
-
-uniform vec3 u_wind;
-
-uniform float u_zoom;
-uniform float u_warp;
-
-// gain and offsets for each pastel color
-uniform vec3 u_color;
-
-// shaping function controls for alpha mask
-uniform float u_center;
-uniform float u_width;
-
-// for brightening edges of clouds and darkening centers
-uniform float u_darken;
-uniform float u_brighten;
-
 
 //================================================================
 // Noise functions By Morgan McGuire @morgan3d, http://graphicscodex.com
@@ -35,9 +17,14 @@ uniform float u_brighten;
 // They are tuned to avoid visible periodicity for both positive and
 // negative coordinates within a few orders of magnitude.
 
+// For a single octave
+//#define NOISE noise
+
+
 // For multiple octaves
 #define NOISE fbm
 #define NUM_NOISE_OCTAVES 9
+
 
 // Precision-adjusted variations of https://www.shadertoy.com/view/4djSRW
 float hash(float p) { p = fract(p * 0.011); p *= p + 7.5; p *= p + p; return fract(p); }
@@ -107,8 +94,8 @@ float fbm(float x) {
 float fbm(vec2 x) {
   float v = 0.0;
   float a = 0.5;
-  vec2 shift = vec2(100.0);
-  // Rotate to reduce axial bias
+  vec2 shift = vec2(100);
+  // Rotate to reduce axial biaså
   mat2 rot = mat2(cos(0.5), sin(0.5), -sin(0.5), cos(0.5));
   for (int i = 0; i < NUM_NOISE_OCTAVES; ++i) {
     v += a * noise(x);
@@ -130,9 +117,6 @@ float fbm(vec3 x) {
   return v;
 }
 
-//================================================================
-// SHAPERS
-
 float smoothstepSigmoid(float x, float center, float width){
   width = clamp(width, 0.0, 1.0);
   center = clamp(center, -1.0, 2.0);
@@ -142,8 +126,6 @@ float smoothstepSigmoid(float x, float center, float width){
   return smoothstep(start, end, x);
 }
 
-//  Function from Iñigo Quiles
-//  www.iquilezles.org/www/articles/functions/functions.htm
 float cubicPulse( float x , float center, float width){
   x = abs(x - center);
   if( x > width ) return 0.0;
@@ -151,68 +133,23 @@ float cubicPulse( float x , float center, float width){
   return 1.0 - x * x * (3.0 - 2.0 * x);
 }
 
-//================================================================
-
-vec2 zoom(vec2 coord, vec2 center, float factor){
-  return (coord - center) * factor + center;
-}
-
-//================================================================
-
 void main() {
+    vec2 st = gl_FragCoord.xy/u_resolution;
+  
+    vec2 q = vec2(0.0);
+    q.x = fbm( st + 0.01 * u_time);
+    q.y = fbm( st + vec2(-3.70,2.705) - 0.01 * u_time);
 
-  // scale the coordinate system and connect aspect ratio "squishing"
-  vec2 st = vec2(gl_FragCoord.x/u_resolution.x, gl_FragCoord.y/u_resolution.x);
+    vec2 r = vec2(0.0);
+    r.x = fbm( st + 1.0 * q + vec2(-1.570,2.430) + 0.01 * u_time );
+    r.y = fbm( st + 1.0 * q + vec2(3.600,-4.610) + 0.01 * u_time);
 
-  // zoom effect acheived by scaling st coordinates
-  vec2 noiseZoomCenter = vec2(0.5, 0.5 * u_resolution.y / u_resolution.x);
-  st = zoom(st, noiseZoomCenter, u_zoom);
+    float f = fbm(st+r);
 
-  // this shifts the st coordinates by a fixed amount, u_time moves in z axis
-  // produces an 2D fbm noise map
-  vec2 q = vec2(0.0);
+    vec3 color = vec3(
+        cubicPulse(f*f*f,0.028,0.077)
+        // smoothstepSigmoid(f*f*f,-0.124,0.477)
+    );
 
-  q.x = fbm( vec3(
-    st.x - 1.013,
-    st.y + 0.512,
-    0.01 * u_time
-  ));
-
-  q.y = fbm( vec3(
-    st.x + 2.705,
-    st.y - 3.561,
-    0.01 * u_time
-  ));
-
-  // again, u_time moves in z axis
-  // uses the above fbm as a warped ST domain 2D fbm noise map
-  vec2 r = vec2(0.0);
-
-  r.x = fbm( vec3(
-    st.x + u_warp * q.x + u_wind.x,
-    st.y + u_warp * q.y + u_wind.y,
-    0.01 * u_time + u_wind.z
-  ));
-
-  r.y = fbm( vec3(
-    st.x + u_warp * q.x,
-    st.y + u_warp * q.y,
-    0.01 * u_time
-  ));
-
-  //warp the original coordinates by multiplying by the warped domain
-  st *= r;
-
-  vec3 pos1 = vec3(u_offset.x + st.x, u_offset.y + st.y, u_offset.z );
-
-  float alpha = clamp(fbm(pos1), 0, 1.0);
-
-  vec3 darker = u_color * (1 - u_darken * (cubicPulse(alpha*alpha, u_center, u_width)));
-
-  vec3 brighter = clamp(darker + u_brighten * (1 - cubicPulse(alpha*alpha, u_center, u_width)), 0, 1.0);
-
-  vec4 color = vec4(brighter, cubicPulse(alpha*alpha, u_center, u_width));
-
-  gl_FragColor = vec4(color);
+    gl_FragColor = vec4(color,1.0);
 }
-

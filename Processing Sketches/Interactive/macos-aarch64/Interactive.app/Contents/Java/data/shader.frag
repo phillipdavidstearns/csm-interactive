@@ -1,30 +1,30 @@
-#define PROCESSING_COLOR_SHADER
-
 #ifdef GL_ES
 precision mediump float;
 #endif
 
 // #define PROCESSING_COLOR_SHADER
 
+uniform sampler2D u_texture;
 uniform vec2 u_resolution;
 uniform float u_time;
-uniform vec3 u_offset;
+uniform float u_offset1;
+uniform float u_offset2;
+uniform float u_offset3;
+uniform float u_feedbackZoom;
+uniform float u_noiseZoom;
 
-uniform vec3 u_wind;
-
-uniform float u_zoom;
-uniform float u_warp;
-
-// gain and offsets for each pastel color
-uniform vec3 u_color;
-
-// shaping function controls for alpha mask
-uniform float u_center;
-uniform float u_width;
-
-// for brightening edges of clouds and darkening centers
-uniform float u_darken;
-uniform float u_brighten;
+// these inputs are for the individual gain and offsets for each pastel color
+uniform float u_gain1;
+uniform float u_gain2;
+uniform float u_gain3;
+uniform float u_gain4;
+uniform float u_pedistal1;
+uniform float u_pedistal2;
+uniform float u_pedistal3;
+uniform float u_pedistal4;
+uniform vec4 u_background;
+uniform vec4 u_palette[8];
+uniform int u_paletteLength;
 
 
 //================================================================
@@ -34,6 +34,9 @@ uniform float u_brighten;
 // All noise functions are designed for values on integer scale.
 // They are tuned to avoid visible periodicity for both positive and
 // negative coordinates within a few orders of magnitude.
+
+// For a single octave
+//#define NOISE noise
 
 // For multiple octaves
 #define NOISE fbm
@@ -109,7 +112,7 @@ float fbm(vec2 x) {
   float a = 0.5;
   vec2 shift = vec2(100.0);
   // Rotate to reduce axial bias
-  mat2 rot = mat2(cos(0.5), sin(0.5), -sin(0.5), cos(0.5));
+  mat2 rot = mat2(cos(0.5), sin(0.5), -sin(0.5), cos(0.50));
   for (int i = 0; i < NUM_NOISE_OCTAVES; ++i) {
     v += a * noise(x);
     x = rot * x * 2.0 + shift;
@@ -132,6 +135,27 @@ float fbm(vec3 x) {
 
 //================================================================
 // SHAPERS
+
+// sigmoid function adapted from
+// https://www.flong.com/archive/texts/code/shapers_exp/index.html
+float doubleExponentialSigmoid (float x, float a){
+
+  float epsilon = 0.00001;
+  float min_param_a = 0.0 + epsilon;
+  float max_param_a = 1.0 - epsilon;
+  a = clamp(a , min_param_a, max_param_a);
+  a = 1.0 - a; // for sensible results
+
+  float y = 0.0;
+
+  if (x <= 0.5){
+    y = (pow(2.0 * x, 1.0 / a)) / 2.0;
+  } else {
+    y = 1.0 - (pow(2.0 * (1.0 - x), 1.0 / a)) / 2.0;
+  }
+
+  return y;
+}
 
 float smoothstepSigmoid(float x, float center, float width){
   width = clamp(width, 0.0, 1.0);
@@ -161,58 +185,36 @@ vec2 zoom(vec2 coord, vec2 center, float factor){
 
 void main() {
 
-  // scale the coordinate system and connect aspect ratio "squishing"
+  vec2 uv = gl_FragCoord.xy/u_resolution.xy;
+  vec2 feedbackZoomCenter = vec2(0.5);
+  vec2 zoomedUV = zoom(uv, feedbackZoomCenter, u_feedbackZoom);
+  vec4 feedback = texture2D(u_texture, zoomedUV);
+
+  // Scale the coordinate system to see
+  // some noise in action
   vec2 st = vec2(gl_FragCoord.x/u_resolution.x, gl_FragCoord.y/u_resolution.x);
-
-  // zoom effect acheived by scaling st coordinates
   vec2 noiseZoomCenter = vec2(0.5, 0.5 * u_resolution.y / u_resolution.x);
-  st = zoom(st, noiseZoomCenter, u_zoom);
+  vec2 zoomedST = zoom(st, noiseZoomCenter, u_noiseZoom);
 
-  // this shifts the st coordinates by a fixed amount, u_time moves in z axis
-  // produces an 2D fbm noise map
-  vec2 q = vec2(0.0);
+  vec3 pos1 = vec3(zoomedST, u_offset1);
+  vec3 pos2 = vec3(zoomedST, u_offset2);
+  vec3 pos3 = vec3(zoomedST, u_offset3);
 
-  q.x = fbm( vec3(
-    st.x - 1.013,
-    st.y + 0.512,
-    0.01 * u_time
-  ));
+  float mixAmount1 = clamp(NOISE(pos1 + vec3(0, 0, 1 + u_time)), 0, 1.0);
+  float mixAmount2 = clamp(NOISE(pos2 + vec3(0, 0, 2 + u_time)), 0, 1.0);
+  float mixAmount3 = clamp(NOISE(pos3 + vec3(0, 0, 3 + u_time)), 0, 1.0);
+  float mixAmount4 = clamp(NOISE(vec3(zoomedST, u_time)), 0, 1.0);
 
-  q.y = fbm( vec3(
-    st.x + 2.705,
-    st.y - 3.561,
-    0.01 * u_time
-  ));
+  vec4 layer1 = mix(u_background, u_palette[0], cubicPulse(mixAmount1, u_gain1+u_pedistal1, 0.025));  
+  vec4 layer2 = mix(layer1, u_palette[1], cubicPulse(mixAmount2, u_gain2+u_pedistal2, 0.025));
+  vec4 layer3 = mix(layer2, u_palette[2], cubicPulse(mixAmount3, u_gain3+u_pedistal3, 0.025));
+  vec4 layer4 = mix(layer3, feedback, smoothstepSigmoid(mixAmount4, 0.5, 0.125));
 
-  // again, u_time moves in z axis
-  // uses the above fbm as a warped ST domain 2D fbm noise map
-  vec2 r = vec2(0.0);
+  // vec4 layer1 = mix(u_background, u_palette[0], doubleExponentialSigmoid(mixAmount1, 0.975));  
+  // vec4 layer2 = mix(layer1, u_palette[1], doubleExponentialSigmoid(mixAmount2, 0.975));
+  // vec4 layer3 = mix(layer2, u_palette[2], doubleExponentialSigmoid(mixAmount3, 0.975));
+  // vec4 layer4 = mix(layer3, feedback, doubleExponentialSigmoid(mixAmount4, 0.0));
 
-  r.x = fbm( vec3(
-    st.x + u_warp * q.x + u_wind.x,
-    st.y + u_warp * q.y + u_wind.y,
-    0.01 * u_time + u_wind.z
-  ));
-
-  r.y = fbm( vec3(
-    st.x + u_warp * q.x,
-    st.y + u_warp * q.y,
-    0.01 * u_time
-  ));
-
-  //warp the original coordinates by multiplying by the warped domain
-  st *= r;
-
-  vec3 pos1 = vec3(u_offset.x + st.x, u_offset.y + st.y, u_offset.z );
-
-  float alpha = clamp(fbm(pos1), 0, 1.0);
-
-  vec3 darker = u_color * (1 - u_darken * (cubicPulse(alpha*alpha, u_center, u_width)));
-
-  vec3 brighter = clamp(darker + u_brighten * (1 - cubicPulse(alpha*alpha, u_center, u_width)), 0, 1.0);
-
-  vec4 color = vec4(brighter, cubicPulse(alpha*alpha, u_center, u_width));
-
-  gl_FragColor = vec4(color);
+  gl_FragColor = layer3;
 }
 

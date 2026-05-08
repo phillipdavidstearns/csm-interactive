@@ -10,8 +10,6 @@ uniform vec2 u_resolution;
 uniform float u_time;
 uniform vec3 u_offset;
 
-uniform vec3 u_wind;
-
 uniform float u_zoom;
 uniform float u_warp;
 
@@ -189,9 +187,9 @@ void main() {
   vec2 r = vec2(0.0);
 
   r.x = fbm( vec3(
-    st.x + u_warp * q.x + u_wind.x,
-    st.y + u_warp * q.y + u_wind.y,
-    0.01 * u_time + u_wind.z
+    st.x + u_warp * q.x,
+    st.y + u_warp * q.y,
+    0.01 * u_time
   ));
 
   r.y = fbm( vec3(
