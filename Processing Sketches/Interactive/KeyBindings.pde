@@ -1,4 +1,9 @@
 void keyPressed() {
+
+  if (key == ESC) {
+    key = 0;  // Fools! don't let them escape!
+  }
+
   switch(key) {
   case ' ':
     activePaletteA = palettes.get(int(random(palettes.size())));
@@ -33,9 +38,9 @@ void keyPressed() {
     break;
   case 'b':
     mass.addForce( new PVector(
-        random(-100,100),
-        random(-100,100),
-        random(-100,100)
-    ));
+      random(-100, 100),
+      random(-100, 100),
+      random(-100, 100)
+      ));
   }
 }
