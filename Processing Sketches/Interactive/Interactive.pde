@@ -101,7 +101,6 @@ float ampSumFalloff = 0.5;
 void setup() {
   pixelDensity(1);
   fullScreen(P2D, 2);
-  //size(1280, 720, P2D);
   frameRate(30);
   noiseDetail(7, 0.5);
   noStroke();
