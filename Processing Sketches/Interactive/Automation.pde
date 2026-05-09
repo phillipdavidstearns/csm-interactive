@@ -8,21 +8,58 @@ class Mass{
   PVector vel = new PVector(0.0, 0.0, 0.0);
   PVector acc = new PVector(0.0, 0.0, 0.0);
   PVector force = new PVector(0.0, 0.0, 0.0);
-  float m = 2500.0;
-  float drag = 0.025;
+  float m = 5000.0;
+  float drag = 0.0125;
   float k = 0.0125;
   float radius = 5;
+  boolean stroke = false;
+  boolean fill = true;
+  color c = color(255);
+  
+  Mass(){
+  }
+  
+  Mass(
+    PVector pos,
+    float m,
+    float drag,
+    float k,
+    float radius,
+    boolean stroke,
+    boolean fill,
+    color c
+   ){
+     this.loc = pos.copy();
+     this.origin = pos.copy();
+     this.m = m;
+     this.drag = drag;
+     this.k = k;
+     this.radius = radius;
+     this.stroke = stroke;
+     this.fill = fill;
+     this.c = c;
+  }
+  
+  Mass setOrigin(PVector _origin){
+    this.origin = _origin.copy();
+    return this;
+  }
   
   void update(){
     applyForce();
-    render();
   }
   
   void applyForce(){
     //F = m * a >> a = F / m
     PVector fExt = this.force.div(this.m);
-    PVector fOrigin = PVector.sub(this.origin, this.loc) // vector pointing from loc to origin
-      .setMag(PVector.dist(this.loc, this.origin) * this.k);
+    PVector fOrigin = new PVector();
+    
+    if(this.k !=0){
+      fOrigin = PVector.sub(this.origin, this.loc).mult(k);
+    }
+    
+    //PVector fOrigin = PVector.sub(this.origin, this.loc) // vector pointing from loc to origin
+    //  .setMag(PVector.dist(this.loc, this.origin) * this.k);
     this.acc = PVector.add(fExt, fOrigin);
     this.vel = this.vel.mult(1 - this.drag).add(this.acc);
     this.loc = this.loc.add(this.vel);
@@ -34,9 +71,39 @@ class Mass{
   }
   
   void render(){
-    noStroke();
-    fill(255);
+    if (!this.stroke) {
+      noStroke();
+    } else {
+      stroke(this.c);
+    }
+    
+    if (!this.fill){
+      noFill();
+    } else {
+      fill(255);
+    }
+ 
     circle(loc.x * width, loc.y * height, 2*this.radius);
   }
   
+}
+
+//================================================================
+
+PVector accumulatedWind = new PVector();
+
+PVector getWind(float x, float y, float scale, float gain, float magOffset, float dirOffset){
+  PVector out = PVector.fromAngle(0);
+
+  float dir = noise(x * scale, y * scale, dirOffset);
+  out.setHeading(2 * PI * dir);
+
+  float mag = noise(x * scale, y * scale, magOffset);
+  out.setMag(mag * gain);
+
+  return out;
+}
+
+void accumulateWind(PVector wind){
+  accumulatedWind = accumulatedWind.add(wind);
 }

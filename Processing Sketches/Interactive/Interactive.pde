@@ -19,11 +19,9 @@ boolean shiftShader = false;
 boolean shiftSort = false;
 boolean sortFeedback = false;
 boolean reverseSort= false;
-boolean devMode = true;
+boolean devMode = false;
 boolean preProcess = false;
 boolean postProcess = false;
-
-boolean cloudFlag = false;
 
 //----------------------------------------------------------------
 // value for pixelsorting
@@ -91,10 +89,32 @@ ControlFrame cf;
 
 //----------------------------------------------------------------
 
-Mass mass = new Mass();
+Mass mass = new Mass(
+  new PVector(0.5, 0.5, 1.0),
+  2500,
+  0.00125,
+  0.0025,
+  25,
+  false,
+  true,
+  color(255)
+  );
+
+Mass origin = new Mass(
+  new PVector(0.5, 0.5, 1.0),
+  100,
+  0.01,
+  0.001,
+  25,
+  true,
+  false,
+  color(255)
+  );
 
 float ampSum = 0.0;
-float ampSumFalloff = 0.5;
+float ampSumFalloff = 0.05; // could cycle throughout the day
+
+PVector wind;
 
 //================================================================
 
@@ -168,16 +188,23 @@ void draw() {
 
   bodhranAmplitude = bodhran.getAmplitude();
   bodhranOffset += bodhranAmplitude;
-  if (bodhran.isBeat()) mass.addForce(new PVector(0.0, 0.0, bodhranAmplitude * 1000));
-
+  if (bodhran.isBeat()) {
+    mass.addForce(new PVector(0.0, 0.0, -bodhranAmplitude * 1000));
+  }
   hangAmplitude = hang.getAmplitude();
   hangOffset += hangAmplitude;
-  if (hang.isBeat()) mass.addForce(new PVector(0.0, hangAmplitude * 1000, 0.0));
+  if (hang.isBeat()) {
+    mass.addForce(new PVector(0.0, -hangAmplitude * 1000, 0.0));
+  }
 
   kalimbaAmplitude = kalimba.getAmplitude();
   kalimbaOffset += kalimbaAmplitude;
-  if (kalimba.isBeat()) mass.addForce(new PVector(kalimbaAmplitude * 1000, 0.0, 0.0));
+  if (kalimba.isBeat()) {
+    mass.addForce(new PVector(kalimbaAmplitude * 1000, 0.0, 0.0));
+  }
 
+  ampSum *= 1 - ampSumFalloff;
+  ampSum += (bodhranAmplitude + hangAmplitude + kalimbaAmplitude);
   //feedbackZoomFactor = 1.0 - noise(1, (bodhranAmplitude+hangAmplitude+kalimbaAmplitude)/3);
   //noiseZoomFactor = 5;
 
@@ -193,13 +220,12 @@ void draw() {
 
   if (pg != null) {
 
-    // if (sortFeedback) pixelsort(pg, reverseFeedbackSort);
     pg.beginDraw();
     pg.noStroke();
 
     background(getBGColor());
 
-    feedbackLayer.set("u_alpha", feedbackAlpha);
+    feedbackLayer.set("u_alpha", ampSum);
     feedbackLayer.set("u_feedbackZoom", mass.loc.z);
     feedbackLayer.set("u_centerX", mass.loc.x);
     feedbackLayer.set("u_centerY", mass.loc.y);
@@ -213,11 +239,6 @@ void draw() {
       pg.resetShader(); // necessary to maintain layer independence
     }
 
-    //draw crosshairs
-    //pg.stroke(255);
-    //pg.line(0, mouseY, width, mouseY);
-    //pg.line(mouseX, 0, mouseX, height);
-
     pg.endDraw();
 
     if (preProcess) process(pg);
@@ -226,11 +247,32 @@ void draw() {
   }
 
   if (postProcess) process();
+  
+  //loadPixels();
+  //for(int x = 0; x < width; x++){
+  //  for(int y = 0; y < height; y++ ){
+  //    pixels[y*width+x] = color(
+  //      int(255 * getWind(
+  //        x/float(width), y/float(height), 5, 1, 3.5 - millis() * 0.0001, -1.2 + millis() * 0.0001
+  //      ).mag()));
+  //  }
+  //}
+  //updatePixels();
 
   if (devMode) showInfo();
 
   updateBlend();
 
+  mass.update();
+
+  //PVector test = wind(mouseX/float(width), mouseY/float(height),2, 0.01, 3.5, -1.2);
+  
+  wind = getWind(mass.loc.x, mass.loc.y, 5, 0.05, 3.5 - millis() * 0.0001, -1.2 + millis() * 0.0001);
+
+  accumulateWind(wind);
+  origin.addForce(wind);
+  origin.update();
+  mass.setOrigin(origin.loc);
   mass.update();
 }
 
@@ -247,6 +289,7 @@ void setShaderParams(int i) {
   noiseLayer.set("u_darken", darkenAmount);
   noiseLayer.set("u_brighten", brightenAmount);
   noiseLayer.set("u_warp", fbmWarp);
+  noiseLayer.set("u_wind", accumulatedWind);
 }
 
 //================================================================
@@ -262,6 +305,7 @@ void showInfo() {
   text("blendDuration: " + blendDuration, 100, 200);
   text("blend: " + blend, 100, 230);
   text("noiseZoomFactor: " + noiseZoomFactor, 100, 260);
+  text("ampSum: " + ampSum, 100, 290);
 
   text("bodhranOffset: " + bodhranOffset, 250, 50);
   text("hangOffset: " + hangOffset, 250, 80);
@@ -269,6 +313,10 @@ void showInfo() {
 
   text("minThreshold: " + thMin, 250, 140);
   text("maxThreshold: " + thMax, 250, 170);
+
+  text("wind.x: " + wind.x, 250, 200);
+  text("wind.y: " + wind.y, 250, 230);
+  text("wind.z: " + wind.z, 250, 250);
 
   noStroke();
 
@@ -283,6 +331,8 @@ void showInfo() {
       );
     square(20, 80+(i*30), 30);
   }
+  origin.render();
+  mass.render();
 }
 
 //================================================================
@@ -438,7 +488,7 @@ float doubleExponentialSigmoid (float x, float a) {
 // Color Management Functions
 
 void updateBlend() {
-  if (frameCount - blendStart > blendDuration) {
+  if (frameCount - blendStart >= blendDuration) {
     activePaletteA = activePaletteB.copy();
     activePaletteB = palettes.get(int(random(palettes.size())));
     activePaletteB.randomizePastels();

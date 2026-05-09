@@ -67,6 +67,9 @@ class ControlFrame extends PApplet {
     surface.setLocation(0, 0);
     cp5 = new ControlP5(this);
     setupControls(this.parent, this.cp5);
+    
+    sortModeRadio.activate(4);
+    sort_mode(4);
   }
 
   void draw() {
@@ -108,7 +111,7 @@ void setupControls(PApplet parent, ControlP5 cp5) {
     .setPosition(grid_x(0), grid_y(0))
     .setSize(size_w(8), size_h(1))
     .setRange(0, 1.0)
-    .setValue(random(1.0))
+    .setValue(0.5)
     ;
   cp5.getController("sort_c").getCaptionLabel()
     .align(ControlP5.RIGHT, CENTER)
@@ -119,7 +122,7 @@ void setupControls(PApplet parent, ControlP5 cp5) {
     .setPosition(grid_x(0), grid_y(1))
     .setSize(size_w(8), size_h(1))
     .setRange(0, 1.0)
-    .setValue(random(1.0))
+    .setValue(0.3)
     ;
   cp5.getController("sort_w").getCaptionLabel()
     .align(ControlP5.RIGHT, CENTER)
@@ -131,7 +134,7 @@ void setupControls(PApplet parent, ControlP5 cp5) {
   // enable spixelsorting
   cp5.addToggle("sort")
     .plugTo(parent, "sortShader")
-    .setValue(sortShader)
+    .setValue(true)
     .setSize(size_w(1), size_h(1))
     .setPosition(grid_x(0), grid_y(2))
     ;
@@ -183,7 +186,7 @@ void setupControls(PApplet parent, ControlP5 cp5) {
   //perform sorting and shifting after rendering of new layer on top
   cp5.addToggle("post")
     .plugTo(parent, "postProcess")
-    .setValue(postProcess)
+    .setValue(true)
     .setSize(size_w(1), size_h(1))
     .setPosition(grid_x(4), grid_y(2))
     ;
@@ -250,27 +253,27 @@ void setupControls(PApplet parent, ControlP5 cp5) {
 
   //----------------------------------------------------------------
 
-  cp5.addSlider("feedback_zoom")
-    .plugTo(parent, "feedbackZoomFactor")
-    .setPosition(grid_x(0), grid_y(8))
-    .setSize(size_w(8), size_h(1))
-    .setRange(0.75, 1.25)
-    .setValue(1.125)
-    ;
-  cp5.getController("feedback_zoom").getCaptionLabel()
-    .align(ControlP5.RIGHT, CENTER)
-    ;
+  //cp5.addSlider("feedback_zoom")
+  //  .plugTo(parent, "feedbackZoomFactor")
+  //  .setPosition(grid_x(0), grid_y(8))
+  //  .setSize(size_w(8), size_h(1))
+  //  .setRange(0.75, 1.25)
+  //  .setValue(1.125)
+  //  ;
+  //cp5.getController("feedback_zoom").getCaptionLabel()
+  //  .align(ControlP5.RIGHT, CENTER)
+  //  ;
 
-  cp5.addSlider("feedback_alpha")
-    .plugTo(parent, "feedbackAlpha")
-    .setPosition(grid_x(0), grid_y(9))
-    .setSize(size_w(8), size_h(1))
-    .setRange(0.0, 1.0)
-    .setValue(0.25)
-    ;
-  cp5.getController("feedback_alpha").getCaptionLabel()
-    .align(ControlP5.RIGHT, CENTER)
-    ;
+  //cp5.addSlider("feedback_alpha")
+  //  .plugTo(parent, "feedbackAlpha")
+  //  .setPosition(grid_x(0), grid_y(9))
+  //  .setSize(size_w(8), size_h(1))
+  //  .setRange(0.0, 1.0)
+  //  .setValue(0.25)
+  //  ;
+  //cp5.getController("feedback_alpha").getCaptionLabel()
+  //  .align(ControlP5.RIGHT, CENTER)
+  //  ;
 
   //----------------------------------------------------------------
 
