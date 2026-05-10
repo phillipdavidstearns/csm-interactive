@@ -20,6 +20,7 @@ boolean shiftSort = false;
 boolean sortFeedback = false;
 boolean reverseSort= false;
 boolean devMode = false;
+boolean devWind = false;
 boolean preProcess = false;
 boolean postProcess = false;
 
@@ -54,13 +55,14 @@ float bodhranAmplitude = 0.0;
 float blend = 0.0;
 float rate = 0.001;
 int blendStart = 0;
-int blendDuration = 1200;
+int blendDuration = 27000;
+boolean blending = false;
 
 //----------------------------------------------------------------
 
 float[] gain = new float[qtyInstruments];
 PVector[] offset = new PVector[qtyInstruments];
-float noiseZoomFactor;
+float noiseZoomFactor = 6;
 float feedbackZoomFactor;
 float alphaCenter = 0.0;
 float alphaWidth = 0.0;
@@ -91,30 +93,33 @@ ControlFrame cf;
 
 Mass mass = new Mass(
   new PVector(0.5, 0.5, 1.0),
-  2500,
-  0.00125,
-  0.0025,
-  25,
-  false,
-  true,
+  7500, //mass
+  0.001, // drag
+  0.001, // k (return to origin force)
+  10, // drawn radius
+  false, //stroke
+  true, //fill
   color(255)
   );
 
 Mass origin = new Mass(
   new PVector(0.5, 0.5, 1.0),
-  100,
-  0.01,
+  2500,
+  0.025,
   0.001,
-  25,
+  10,
   true,
   false,
   color(255)
   );
 
 float ampSum = 0.0;
-float ampSumFalloff = 0.05; // could cycle throughout the day
+float ampSumFalloff = 0.005; // could cycle throughout the day
 
-PVector wind;
+Wind wind = new Wind();
+PVector forceWind = new PVector();
+float windMin = 0.25;
+float windMax = 0.75;
 
 //================================================================
 
@@ -124,7 +129,7 @@ void setup() {
   frameRate(30);
   noiseDetail(7, 0.5);
   noStroke();
-
+  background(0);
   // instantiate the ControlFrame
   cf = new ControlFrame(this, 400, 800);
 
@@ -162,18 +167,18 @@ void setup() {
 
   //used to create unique starting conditions for the pastel noise layers
   offset[0] = new PVector(
-    random(-2, 2),
-    random(-2, 2),
+    random(-3, 3),
+    random(-3, 3),
     bodhranOffset
     );
   offset[1] = new PVector(
-    random(-2, 2),
-    random(-2, 2),
+    random(-3, 3),
+    random(-3, 3),
     hangOffset
     );
   offset[2] = new PVector(
-    random(-2, 2),
-    random(-2, 2),
+    random(-3, 3),
+    random(-3, 3),
     kalimbaOffset
     );
 
@@ -187,26 +192,37 @@ void draw() {
   //read analyzers
 
   bodhranAmplitude = bodhran.getAmplitude();
-  bodhranOffset += bodhranAmplitude;
+  bodhranOffset += 0.25 * bodhranAmplitude;
   if (bodhran.isBeat()) {
-    mass.addForce(new PVector(0.0, 0.0, -bodhranAmplitude * 1000));
+    origin.addForce(new PVector(
+      0.0,
+      0.0,
+      (origin.vel.z < 0 ? -1 : 1) * bodhranAmplitude * 5)
+      );
   }
   hangAmplitude = hang.getAmplitude();
-  hangOffset += hangAmplitude;
+  hangOffset += 0.25 * hangAmplitude;
   if (hang.isBeat()) {
-    mass.addForce(new PVector(0.0, -hangAmplitude * 1000, 0.0));
+    origin.addForce(new PVector(
+      0.0,
+      (origin.vel.y < 0 ? -1 : 1) * hangAmplitude * 5,
+      0.0)
+      );
   }
 
   kalimbaAmplitude = kalimba.getAmplitude();
-  kalimbaOffset += kalimbaAmplitude;
+  kalimbaOffset += 0.25 * kalimbaAmplitude;
   if (kalimba.isBeat()) {
-    mass.addForce(new PVector(kalimbaAmplitude * 1000, 0.0, 0.0));
+    origin.addForce(new PVector(
+      (origin.vel.x < 0 ? -1 : 1) * kalimbaAmplitude * 5,
+      0.0,
+      0.0)
+      );
   }
 
   ampSum *= 1 - ampSumFalloff;
-  ampSum += (bodhranAmplitude + hangAmplitude + kalimbaAmplitude);
-  //feedbackZoomFactor = 1.0 - noise(1, (bodhranAmplitude+hangAmplitude+kalimbaAmplitude)/3);
-  //noiseZoomFactor = 5;
+  ampSum += 0.5*(bodhranAmplitude + hangAmplitude + kalimbaAmplitude)/3;
+  ampSum = constrain(ampSum, 0, 1);
 
   gain[0] = 2.0 * bodhranAmplitude;
   gain[1] = 2.0 * hangAmplitude;
@@ -247,34 +263,24 @@ void draw() {
   }
 
   if (postProcess) process();
-  
-  //loadPixels();
-  //for(int x = 0; x < width; x++){
-  //  for(int y = 0; y < height; y++ ){
-  //    pixels[y*width+x] = color(
-  //      int(255 * getWind(
-  //        x/float(width), y/float(height), 5, 1, 3.5 - millis() * 0.0001, -1.2 + millis() * 0.0001
-  //      ).mag()));
-  //  }
-  //}
-  //updatePixels();
+
 
   if (devMode) showInfo();
+
 
   updateBlend();
 
   mass.update();
 
-  //PVector test = wind(mouseX/float(width), mouseY/float(height),2, 0.01, 3.5, -1.2);
-  
-  wind = getWind(mass.loc.x, mass.loc.y, 5, 0.05, 3.5 - millis() * 0.0001, -1.2 + millis() * 0.0001);
-
-  accumulateWind(wind);
-  origin.addForce(wind);
+  forceWind = wind.wind(origin.loc.x, origin.loc.y).mult(0.1);
+  accumulateWind(forceWind);
+  origin.addForce(forceWind);
   origin.update();
   mass.setOrigin(origin.loc);
   mass.update();
+  wind.stepOffsets(0.0125 * forceWind.x, 0.0125 * forceWind.y);
 }
+
 
 //================================================================
 
@@ -289,51 +295,9 @@ void setShaderParams(int i) {
   noiseLayer.set("u_darken", darkenAmount);
   noiseLayer.set("u_brighten", brightenAmount);
   noiseLayer.set("u_warp", fbmWarp);
-  noiseLayer.set("u_wind", accumulatedWind);
+  noiseLayer.set("u_wind", PVector.mult(accumulatedWind, 0.05));
 }
 
-//================================================================
-// Diagnostics Display
-
-void showInfo() {
-  fill(255);
-  text("bodhran: " + gain[0], 100, 50);
-  text("hang pan: " + gain[1], 100, 80);
-  text("kalimba: " + gain[2], 100, 110);
-  text("frameCount: " + frameCount, 100, 140);
-  text("blendStart: " + blendStart, 100, 170);
-  text("blendDuration: " + blendDuration, 100, 200);
-  text("blend: " + blend, 100, 230);
-  text("noiseZoomFactor: " + noiseZoomFactor, 100, 260);
-  text("ampSum: " + ampSum, 100, 290);
-
-  text("bodhranOffset: " + bodhranOffset, 250, 50);
-  text("hangOffset: " + hangOffset, 250, 80);
-  text("kalimbaOffset: " + kalimbaOffset, 250, 110);
-
-  text("minThreshold: " + thMin, 250, 140);
-  text("maxThreshold: " + thMax, 250, 170);
-
-  text("wind.x: " + wind.x, 250, 200);
-  text("wind.y: " + wind.y, 250, 230);
-  text("wind.z: " + wind.z, 250, 250);
-
-  noStroke();
-
-  fill(getBGColor());
-  square(20, 50, 30);
-  for (int i = 0; i < qtyInstruments; i++) {
-    float[] pastel = getPaletteColor(i);
-    fill(
-      round(pastel[0]*255),
-      round(pastel[1]*255),
-      round(pastel[2]*255)
-      );
-    square(20, 80+(i*30), 30);
-  }
-  origin.render();
-  mass.render();
-}
 
 //================================================================
 // Pixel Sorting Related Functions

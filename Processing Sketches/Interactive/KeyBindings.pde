@@ -36,5 +36,14 @@ void keyPressed() {
   case 'P':
     postProcess = !postProcess;
     break;
+  case 'o':
+    PVector bump = origin.vel.copy().setMag(
+      random(5)
+      );
+    origin.addForce(bump);
+    break;
+  case 'w':
+    devWind = !devWind;
+    break;
   }
 }

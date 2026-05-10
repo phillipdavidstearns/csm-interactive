@@ -62,12 +62,13 @@ class ControlFrame extends PApplet {
   }
 
   public void setup() {
+    background(0);
     pixelDensity(1);
     frameRate(30);
     surface.setLocation(0, 0);
     cp5 = new ControlP5(this);
     setupControls(this.parent, this.cp5);
-    
+
     sortModeRadio.activate(4);
     sort_mode(4);
   }
@@ -221,7 +222,7 @@ void setupControls(PApplet parent, ControlP5 cp5) {
     .setPosition(grid_x(0), grid_y(5))
     .setSize(size_w(8), size_h(1))
     .setRange(0, 1.0)
-    .setValue(0.05)
+    .setValue(0.1)
     ;
   cp5.getController("alpha_center").getCaptionLabel()
     .align(ControlP5.RIGHT, CENTER)
@@ -232,7 +233,7 @@ void setupControls(PApplet parent, ControlP5 cp5) {
     .setPosition(grid_x(0), grid_y(6))
     .setSize(size_w(8), size_h(1))
     .setRange(0, 1.0)
-    .setValue(0.15)
+    .setValue(0.1)
     ;
   cp5.getController("alpha_width").getCaptionLabel()
     .align(ControlP5.RIGHT, CENTER)
@@ -240,40 +241,40 @@ void setupControls(PApplet parent, ControlP5 cp5) {
 
   //----------------------------------------------------------------
 
-  cp5.addSlider("noise_zoom")
-    .plugTo(parent, "noiseZoomFactor")
-    .setPosition(grid_x(0), grid_y(7))
-    .setSize(size_w(8), size_h(1))
-    .setRange(-5.0, 5.0)
-    .setValue(5.0)
-    ;
-  cp5.getController("noise_zoom").getCaptionLabel()
-    .align(ControlP5.RIGHT, CENTER)
-    ;
+  //cp5.addSlider("noise_zoom")
+  //  .plugTo(parent, "noiseZoomFactor")
+  //  .setPosition(grid_x(0), grid_y(7))
+  //  .setSize(size_w(8), size_h(1))
+  //  .setRange(-5.0, 5.0)
+  //  .setValue(5.0)
+  //  ;
+  //cp5.getController("noise_zoom").getCaptionLabel()
+  //  .align(ControlP5.RIGHT, CENTER)
+  //  ;
 
   //----------------------------------------------------------------
 
-  //cp5.addSlider("feedback_zoom")
-  //  .plugTo(parent, "feedbackZoomFactor")
-  //  .setPosition(grid_x(0), grid_y(8))
-  //  .setSize(size_w(8), size_h(1))
-  //  .setRange(0.75, 1.25)
-  //  .setValue(1.125)
-  //  ;
-  //cp5.getController("feedback_zoom").getCaptionLabel()
-  //  .align(ControlP5.RIGHT, CENTER)
-  //  ;
+  cp5.addSlider("wind_min")
+    .plugTo(parent, "windMin")
+    .setPosition(grid_x(0), grid_y(8))
+    .setSize(size_w(8), size_h(1))
+    .setRange(0.0, 1.0)
+    .setValue(0.25)
+    ;
+  cp5.getController("wind_min").getCaptionLabel()
+    .align(ControlP5.RIGHT, CENTER)
+    ;
 
-  //cp5.addSlider("feedback_alpha")
-  //  .plugTo(parent, "feedbackAlpha")
-  //  .setPosition(grid_x(0), grid_y(9))
-  //  .setSize(size_w(8), size_h(1))
-  //  .setRange(0.0, 1.0)
-  //  .setValue(0.25)
-  //  ;
-  //cp5.getController("feedback_alpha").getCaptionLabel()
-  //  .align(ControlP5.RIGHT, CENTER)
-  //  ;
+  cp5.addSlider("wind_max")
+    .plugTo(parent, "windMax")
+    .setPosition(grid_x(0), grid_y(9))
+    .setSize(size_w(8), size_h(1))
+    .setRange(0.0, 1.0)
+    .setValue(0.75)
+    ;
+  cp5.getController("wind_max").getCaptionLabel()
+    .align(ControlP5.RIGHT, CENTER)
+    ;
 
   //----------------------------------------------------------------
 
@@ -306,7 +307,7 @@ void setupControls(PApplet parent, ControlP5 cp5) {
     .setPosition(grid_x(0), grid_y(12))
     .setSize(size_w(8), size_h(1))
     .setRange(-5.0, 5.0)
-    .setValue(3.25)
+    .setValue(3.0)
     ;
   cp5.getController("fbm_warp").getCaptionLabel()
     .align(ControlP5.RIGHT, CENTER)
