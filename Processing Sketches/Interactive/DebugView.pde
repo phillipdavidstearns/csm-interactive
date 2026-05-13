@@ -12,12 +12,14 @@ void showInfo() {
   text("bodhran: " + gain[0], 100, 50);
   text("hang pan: " + gain[1], 100, 80);
   text("kalimba: " + gain[2], 100, 110);
-  text("frameCount: " + frameCount, 100, 140);
-  text("blendStart: " + blendStart, 100, 170);
-  text("blendDuration: " + blendDuration, 100, 200);
-  text("blend: " + blend, 100, 230);
-  text("noiseZoomFactor: " + noiseZoomFactor, 100, 260);
-  text("ampSum: " + ampSum, 100, 290);
+
+  text("ctl.beatBlend: " + ctl.beatBlend, 100, 140);
+  text("ctl.blendFlag: " + ctl.blendFlag, 100, 170);
+  text("ctl.frame: " + ctl.frame, 100, 200);
+  text("ctl.blendAmount: " + ctl.blendAmount, 100, 230);
+
+  text("sortMode: " + sortMode, 100, 290);
+  text("sortShader: " + sortShader, 100, 320);
 
   //Column 2
   text("bodhranOffset: " + bodhranOffset, 250, 50);
@@ -30,16 +32,28 @@ void showInfo() {
   text("wind.x: " + origin_wind.x, 250, 200);
   text("wind.y: " + origin_wind.y, 250, 230);
   text("wind.z: " + origin_wind.z, 250, 260);
-
+  text("windHeading: " + windHeading, 250, 290);
 
   // Column 3
-  text("origin.loc.x: " + origin.loc.x, 400, 50);
-  text("origin.loc.y: " + origin.loc.y, 400, 80);
-  text("origin.loc.z: " + origin.loc.z, 400, 110);
 
-  text("mass.loc.x: " + mass.loc.x, 400, 140);
-  text("mass.loc.y: " + mass.loc.y, 400, 170);
-  text("mass.loc.z: " + mass.loc.z, 400, 200);
+  text("bodhran avg: " + bodhran.getRollingAvg(), 400, 50);
+  text("hang avg: " + hang.getRollingAvg(), 400, 80);
+  text("kalimba avg: " + kalimba.getRollingAvg(), 400, 110);
+  text("bodhranSum: " + bodhranSum, 400, 140);
+
+  //text("origin.loc.x: " + origin.loc.x, 400, 50);
+  //text("origin.loc.y: " + origin.loc.y, 400, 80);
+  //text("origin.loc.z: " + origin.loc.z, 400, 110);
+
+  //text("mass.loc.x: " + mass.loc.x, 400, 140);
+  //text("mass.loc.y: " + mass.loc.y, 400, 170);
+  //text("mass.loc.z: " + mass.loc.z, 400, 200);
+
+  // Column 4
+
+  text("bodhran peak: " + bodhran.getPeak(), 550, 50);
+  text("hang peak: " + hang.getPeak(), 550, 80);
+  text("kalimba peak: " + kalimba.getPeak(), 550, 110);
 
   //Palette Swatches
   noStroke();
@@ -71,11 +85,12 @@ void showInfo() {
     );
 
   PVector mouse_wind = wind.wind(mouseX/float(width), mouseY/float(height));
+  mouse_wind.setMag(250*mouse_wind.mag());
   line(
     mouseX,
     mouseY,
-    250*mouse_wind.mag()*mouse_wind.x + mouseX,
-    250*mouse_wind.mag()*mouse_wind.y + mouseY
+    mouse_wind.x + mouseX,
+    mouse_wind.y + mouseY
     );
   text("mouseX: " + mouseX/float(width), mouseX, mouseY);
   text("mouseY: " + mouseY/float(width), mouseX, mouseY+20);
@@ -93,9 +108,9 @@ void visualizeWind() {
     for (int y = 0; y < height; y+=pixelSize ) {
       noStroke();
       fill(color(
-        map(wind.wind(x/float(width), y/float(width)).heading(), -PI, PI, 0, 2*PI),
-        wind.wind(x/float(width), y/float(width)).mag(),
-        wind.wind(x/float(width), y/float(width)).mag()
+        map(wind.wind(x/float(width), y/float(height)).heading(), -PI, PI, 0, 2*PI),
+        wind.wind(x/float(width), y/float(height)).mag(),
+        wind.wind(x/float(width), y/float(height)).mag()
         ));
       square(x, y, pixelSize);
     }

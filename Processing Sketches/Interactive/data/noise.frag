@@ -12,6 +12,8 @@ uniform vec3 u_offset;
 
 uniform vec3 u_wind;
 
+uniform float u_amp;
+
 uniform float u_zoom;
 uniform float u_warp;
 
@@ -26,6 +28,10 @@ uniform float u_width;
 uniform float u_darken;
 uniform float u_brighten;
 
+
+uniform float u_brightness;
+uniform float u_contrast;
+uniform float u_saturation;
 
 //================================================================
 // Noise functions By Morgan McGuire @morgan3d, http://graphicscodex.com
@@ -158,6 +164,35 @@ vec2 zoom(vec2 coord, vec2 center, float factor){
 }
 
 //================================================================
+// From: https://github.com/SableRaf/Filters4Processing/blob/master/sketches/ContrastSaturationBrightness/data/ContrastSaturationBrightness.glsl
+
+/*
+** Contrast, saturation, brightness
+** Code of this function is from TGM's shader pack
+** http://irrlicht.sourceforge.net/phpBB2/viewtopic.php?t=21057
+*/
+
+// For all settings: 1.0 = 100% 0.5=50% 1.5 = 150%
+vec3 ContrastSaturationBrightness(vec3 color, float brt, float sat, float con)
+{
+  // Increase or decrease theese values to adjust r, g and b color channels seperately
+  const float AvgLumR = 0.5;
+  const float AvgLumG = 0.5;
+  const float AvgLumB = 0.5;
+  
+  const vec3 LumCoeff = vec3(0.2125, 0.7154, 0.0721);
+  
+  vec3 AvgLumin  = vec3(AvgLumR, AvgLumG, AvgLumB);
+  vec3 brtColor  = color * brt;
+  vec3 intensity = vec3(dot(brtColor, LumCoeff));
+  vec3 satColor  = mix(intensity, brtColor, sat);
+  vec3 conColor  = mix(AvgLumin, satColor, con);
+  
+  return conColor;
+}
+
+//================================================================
+
 
 void main() {
 
@@ -207,12 +242,18 @@ void main() {
 
   float alpha = clamp(fbm(pos1), 0, 1.0);
 
-  vec3 darker = u_color * (1 - u_darken * (cubicPulse(alpha*alpha, u_center, u_width)));
+  alpha = cubicPulse(alpha*alpha, u_center + u_amp, u_width);
 
-  vec3 brighter = clamp(darker + u_brighten * (1 - cubicPulse(alpha*alpha, u_center, u_width)), 0, 1.0);
+  vec3 darker = u_color * (1 - u_darken * alpha);
 
-  vec4 color = vec4(brighter, cubicPulse(alpha*alpha, u_center, u_width));
+  vec3 brighter = clamp(u_color + u_brighten * (1 - alpha), 0, 1.0);
 
-  gl_FragColor = vec4(color);
+  vec3 color = mix(
+    darker, brighter, 0.5
+  );
+
+  gl_FragColor = vec4(ContrastSaturationBrightness(
+    color, u_brightness, u_saturation, u_contrast
+  ), alpha);
 }
 

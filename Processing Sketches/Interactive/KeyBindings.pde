@@ -45,5 +45,11 @@ void keyPressed() {
   case 'w':
     devWind = !devWind;
     break;
+  case 'b':
+    ctl.bonk();
+    break;
+  case 'B':
+    randomizeSort();
+    break;
   }
 }

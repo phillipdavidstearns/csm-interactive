@@ -15,14 +15,14 @@ PGraphics pg;
 //----------------------------------------------------------------
 // switches for processing
 boolean sortShader = false;
-boolean shiftShader = false;
+boolean shiftShader = true;
 boolean shiftSort = false;
 boolean sortFeedback = false;
 boolean reverseSort= false;
 boolean devMode = false;
 boolean devWind = false;
 boolean preProcess = false;
-boolean postProcess = false;
+boolean postProcess = true;
 
 //----------------------------------------------------------------
 // value for pixelsorting
@@ -30,10 +30,10 @@ boolean postProcess = false;
 int sortMode = 0;
 
 // GLOBALS functions like updateThresholds, thresholdSort and evalPixel
-int thMin = 0;
-int thMax = 0;
-float thCenter = 0.0;
-float thWidth = 0.0;
+float thMin = 0.5;
+float thMax = 0.5;
+float thCenter = 0.5;
+float thWidth = 0.5;
 
 //----------------------------------------------------------------
 
@@ -57,20 +57,25 @@ float rate = 0.001;
 int blendStart = 0;
 int blendDuration = 27000;
 boolean blending = false;
-
+float bri = 0.95;
+float sat = 1.05;
+float con = 0.95;
 //----------------------------------------------------------------
 
 float[] gain = new float[qtyInstruments];
 PVector[] offset = new PVector[qtyInstruments];
 float noiseZoomFactor = 6;
-float feedbackZoomFactor;
-float alphaCenter = 0.0;
-float alphaWidth = 0.0;
+
+float alphaCenter = 0.05;
+float alphaWidth = 0.15;
 
 float feedbackAlpha = 0.0;
-float darkenAmount = 0.0;
-float brightenAmount = 0.0;
-float fbmWarp = 0.0;
+float feedbackRotation = 0.0;
+float feedbackZoom = 0.0;
+
+float darkenAmount = 0.05;
+float brightenAmount = 0.1;
+float fbmWarp = 3.0;
 
 // Wall dimensions: 361" x 144" - projector location? distance back?
 // Projector Aspect Ratio: 16:9
@@ -93,9 +98,9 @@ ControlFrame cf;
 
 Mass mass = new Mass(
   new PVector(0.5, 0.5, 1.0),
-  7500, //mass
+  5000, //mass
   0.001, // drag
-  0.001, // k (return to origin force)
+  0.0001, // k (return to origin force)
   10, // drawn radius
   false, //stroke
   true, //fill
@@ -105,33 +110,44 @@ Mass mass = new Mass(
 Mass origin = new Mass(
   new PVector(0.5, 0.5, 1.0),
   2500,
-  0.025,
-  0.001,
+  0.0075,
+  0.0001,
   10,
   true,
   false,
   color(255)
   );
 
-float ampSum = 0.0;
-float ampSumFalloff = 0.005; // could cycle throughout the day
+float bodhranSum = 0.0;
+float bodhranSumGain = 0.25;
+float bodhranSumFalloff = 0.025; // could cycle throughout the day
 
-Wind wind = new Wind();
+float kalimbaSum = 0.0;
+float kalimbaSumGain = 0.075;
+float kalimbaSumFalloff = 0.0625;
+
+Wind wind = new Wind(7);
 PVector forceWind = new PVector();
-float windMin = 0.25;
-float windMax = 0.75;
+float windHeading;
+
+float bonkForceGain = 15.0;
+
+Control ctl = new Control(27000, 300, 256, 64);
 
 //================================================================
 
 void setup() {
   pixelDensity(1);
   fullScreen(P2D, 2);
+  noCursor();
   frameRate(30);
   noiseDetail(7, 0.5);
   noStroke();
   background(0);
+
   // instantiate the ControlFrame
-  cf = new ControlFrame(this, 400, 800);
+  // disabled for exhibition
+  // cf = new ControlFrame(this, 400, 800);
 
   palettes = loadPalettes();
   activePaletteA = palettes.get(int(random(palettes.size())));
@@ -152,7 +168,6 @@ void setup() {
 
   // Initialize the sound device
   try {
-    //Sound s = new Sound(this);
     String device = "Scarlett 18i8 USB";
     processing.sound.Sound.inputDevice(device);
   }
@@ -183,56 +198,15 @@ void setup() {
     );
 
   blendStart = frameCount;
+  randomizeSort();
 }
 
 //================================================================
 
 void draw() {
 
-  //read analyzers
-
-  bodhranAmplitude = bodhran.getAmplitude();
-  bodhranOffset += 0.25 * bodhranAmplitude;
-  if (bodhran.isBeat()) {
-    origin.addForce(new PVector(
-      0.0,
-      0.0,
-      (origin.vel.z < 0 ? -1 : 1) * bodhranAmplitude * 5)
-      );
-  }
-  hangAmplitude = hang.getAmplitude();
-  hangOffset += 0.25 * hangAmplitude;
-  if (hang.isBeat()) {
-    origin.addForce(new PVector(
-      0.0,
-      (origin.vel.y < 0 ? -1 : 1) * hangAmplitude * 5,
-      0.0)
-      );
-  }
-
-  kalimbaAmplitude = kalimba.getAmplitude();
-  kalimbaOffset += 0.25 * kalimbaAmplitude;
-  if (kalimba.isBeat()) {
-    origin.addForce(new PVector(
-      (origin.vel.x < 0 ? -1 : 1) * kalimbaAmplitude * 5,
-      0.0,
-      0.0)
-      );
-  }
-
-  ampSum *= 1 - ampSumFalloff;
-  ampSum += 0.5*(bodhranAmplitude + hangAmplitude + kalimbaAmplitude)/3;
-  ampSum = constrain(ampSum, 0, 1);
-
-  gain[0] = 2.0 * bodhranAmplitude;
-  gain[1] = 2.0 * hangAmplitude;
-  gain[2] = 2.0 * kalimbaAmplitude;
-
-  offset[0].z = bodhranOffset;
-  offset[1].z = hangOffset;
-  offset[2].z = kalimbaOffset;
-
-  // Set uniforms
+  // read audio from instruments and update global values
+  updateAudio();
 
   if (pg != null) {
 
@@ -241,15 +215,12 @@ void draw() {
 
     background(getBGColor());
 
-    feedbackLayer.set("u_alpha", ampSum);
-    feedbackLayer.set("u_feedbackZoom", mass.loc.z);
-    feedbackLayer.set("u_centerX", mass.loc.x);
-    feedbackLayer.set("u_centerY", mass.loc.y);
+    setFeedbackShaderParams();
     pg.shader(feedbackLayer);
     pg.image(pg, 0, 0);
 
     for (int i = 0; i < qtyInstruments; i++) {
-      setShaderParams(i);
+      setNoiseShaderParams(i);
       pg.shader(noiseLayer);
       pg.rect(0, 0, pg.width, pg.height);
       pg.resetShader(); // necessary to maintain layer independence
@@ -262,29 +233,82 @@ void draw() {
     image(pg, 0, 0);
   }
 
-  if (postProcess) process();
+  //----------------------------------------------------------------
 
+  if (postProcess) process();
 
   if (devMode) showInfo();
 
-
-  updateBlend();
+  //----------------------------------------------------------------
 
   mass.update();
-
-  forceWind = wind.wind(origin.loc.x, origin.loc.y).mult(0.1);
+  forceWind = wind.wind(origin.loc.x, origin.loc.y).mult(0.0625);
   accumulateWind(forceWind);
   origin.addForce(forceWind);
   origin.update();
   mass.setOrigin(origin.loc);
   mass.update();
-  wind.stepOffsets(0.0125 * forceWind.x, 0.0125 * forceWind.y);
+  wind.stepOffsets(0.05 * forceWind.x, 0.05 * forceWind.y);
+  windHeading = wind.wind(origin.loc.x, origin.loc.y).mag() + PI;
+
+  //----------------------------------------------------------------
+
+  if (sortCenter != null && sortWidth != null) {
+    sortCenter.setValue(mass.loc.x);
+    sortWidth.setValue(mass.loc.y);
+  } else {
+    sort_c(mass.loc.x);
+    sort_w(mass.loc.y);
+  }
+
+  //----------------------------------------------------------------
+
+  ctl.update();
+
+  if (!ctl.blendFlag && ctl.frame == 0 && ctl.blendAmount == 0.0) {
+    activePaletteA = activePaletteB.copy();
+    activePaletteB = palettes.get(int(random(palettes.size())));
+    activePaletteB.randomizePastels();
+  }
+}
+
+//================================================================
+
+void randomizeSort() {
+  int mode = sortMode;
+  while (mode == sortMode) {
+    mode = floor(random(-1, 6));
+    //mode = floor(random(-1, sortModeRadio.getItems().size()));
+  }
+
+  if (mode < 0) {
+    //sortModeRadio.deactivateAll();
+    sortShader = false;
+  } else {
+    sortShader = true;
+    //sortModeRadio.activate(mode);
+    sort_mode(mode);
+    reverseSort = random(1.0) < 0.25;
+    //reverseSortToggle.setValue(random(1.0) < 0.25);
+  }
 }
 
 
 //================================================================
+// Set parameters for the feedback shader 
 
-void setShaderParams(int i) {
+void setFeedbackShaderParams() {
+  feedbackLayer.set("u_alpha", bodhranSum);
+  feedbackLayer.set("u_feedbackZoom", mass.loc.z);
+  feedbackLayer.set("u_c_fb", mass.loc.x, mass.loc.y);
+  feedbackLayer.set("u_c_rot", origin.loc.x, origin.loc.y);
+  feedbackLayer.set("u_rotation", map(windHeading, 0.0, 2*PI, -0.1, 0.1));
+}
+
+//----------------------------------------------------------------
+// Set the parameters for the noise/cloud shader
+
+void setNoiseShaderParams(int i) {
   float[] pastel = getPaletteColor(i);
   noiseLayer.set("u_color", pastel[0], pastel[1], pastel[2]);
   noiseLayer.set("u_time", millis() * 0.0001);
@@ -294,141 +318,16 @@ void setShaderParams(int i) {
   noiseLayer.set("u_width", alphaWidth);
   noiseLayer.set("u_darken", darkenAmount);
   noiseLayer.set("u_brighten", brightenAmount);
+  noiseLayer.set("u_brightness", bri);
+  noiseLayer.set("u_contrast", con);
+  noiseLayer.set("u_saturation", sat);
   noiseLayer.set("u_warp", fbmWarp);
-  noiseLayer.set("u_wind", PVector.mult(accumulatedWind, 0.05));
-}
-
-
-//================================================================
-// Pixel Sorting Related Functions
-
-void updateThresholds() {
-  thMin = round(255 * thCenter * (1 - thWidth));
-  thMax = round(255 * (thCenter * (1 - thWidth) + thWidth));
-}
-
-//----------------------------------------------------------------
-
-void process(PGraphics _pg) {
-  if (sortShader ==false &&
-    shiftShader == false &&
-    sortFeedback == false &&
-    reverseSort == false ) return;
-
-  _pg.beginDraw();
-  _pg.loadPixels();
-  processPixels(_pg.pixels, _pg.height, _pg.width);
-  _pg.updatePixels();
-  _pg.endDraw();
-}
-
-//----------------------------------------------------------------
-
-void process() {
-  loadPixels();
-  processPixels(pixels, height, width);
-  updatePixels();
-}
-
-//----------------------------------------------------------------
-
-void processPixels(int[] _pixels, int _height, int _width) {
-  int[] column = new int[_height];
-
-  for (int x = 0; x < _width; x++) {
-    for (int y = 0; y < _height; y++) {
-      column[y] = _pixels[y * _width + x];
-    }
-
-    if (sortShader) column = thresholdSort(column, sortMode);
-
-    if (shiftShader) {
-      int amount = round(((bodhranAmplitude+hangAmplitude+kalimbaAmplitude)/3.0) * column.length * (noise(
-        0.01 * x,
-        _height * frameCount * 0.0001)-0.5
-        ));
-      column = shift(column, amount);
-    }
-
-    for (int y = 0; y < _height; y++) {
-      _pixels[y * _width + x] = column[y];
-    }
-  }
-}
-
-//----------------------------------------------------------------
-
-// different ways in which the threshold for max and min can be used to mask pixels to be sorted
-boolean evalPixel(float _value, int _mode, boolean _flag) {
-  switch(_mode) {
-  case 0: // pixel values below center
-    return _flag ? _value >= round(255 * thCenter) : _value < round(255 * thCenter);
-  case 1: // start capture pixels below min, stop above max
-    return _flag ? _value >= thMax : _value < thMin;
-  case 2: // pixel values above min
-    return _flag ? _value <= round(255 * thCenter): _value > round(255 * thCenter);
-  case 3: // start capture pixels above max, stop below min
-    return _flag ? _value <= thMin : _value > thMax;
-  case 4: // start capture pixels below max, stop capture below min
-    return _flag ? _value <= thMin  || _value >= thMax : _value < thMax && _value > thMin;
-  case 5:  // start capture pixels below max, stop capture below min
-    return _flag ? _value >= thMin  && _value <= thMax : _value > thMax || _value < thMin;
-  }
-  return false;
-}
-
-//----------------------------------------------------------------
-
-// pixelsorting on the main rendering chain
-int[] thresholdSort(int[] pixelArray, int mode) {
-  boolean segmentFlag = false;
-  int start = 0;
-  int end = 0;
-  float value;
-  for (int i = 0; i < pixelArray.length; i++) {
-    value = brightness(pixelArray[i]);
-
-    if (!segmentFlag && evalPixel(value, mode, segmentFlag)) {
-      start = i;
-      segmentFlag = true;
-    } else if (segmentFlag && (evalPixel(value, mode, segmentFlag) || i == pixelArray.length - 1)) {
-      end = i;
-      segmentFlag = false;
-      int[] chunk = new int[end-start];
-      for (int j = 0; j < end-start; j++) {
-        chunk[j] = pixelArray[start+j];
-      }
-      chunk = sort(chunk);
-      if (reverseSort) chunk = reverse(chunk);
-      if (shiftSort) {
-        int amount = round(chunk.length * noise(
-          0.1 * i,
-          frameCount * 0.0001));
-        chunk = shift(chunk, amount);
-      }
-      for (int j = 0; j < end-start; j++) {
-        pixelArray[start+j] = chunk[j];
-      }
-    }
-  }
-
-  return pixelArray;
-}
-
-//----------------------------------------------------------------
-
-int[] shift(int[] array, int amount) {
-  int[] shifted = new int[array.length];
-  int j = 0;
-  for (int i = 0; i < shifted.length; i++) {
-    j = (i + amount) % array.length;
-    shifted[i] = array[j < 0 ? j + array.length : j];
-  }
-  return shifted;
+  noiseLayer.set("u_wind", PVector.mult(accumulatedWind, 0.0125));
+  noiseLayer.set("u_amp", gain[i]);
 }
 
 //================================================================
-// Shaper functions
+// Shaper function
 
 float doubleExponentialSigmoid (float x, float a) {
 
@@ -451,26 +350,11 @@ float doubleExponentialSigmoid (float x, float a) {
 //================================================================
 // Color Management Functions
 
-void updateBlend() {
-  if (frameCount - blendStart >= blendDuration) {
-    activePaletteA = activePaletteB.copy();
-    activePaletteB = palettes.get(int(random(palettes.size())));
-    activePaletteB.randomizePastels();
-    blendStart = frameCount;
-  }
-
-  blend = doubleExponentialSigmoid(
-    (frameCount - blendStart) / float(blendDuration),
-    0.9);
-}
-
-//----------------------------------------------------------------
-
 color getBGColor() {
   return color(
-    round(255*lerp(activePaletteA.background[0], activePaletteB.background[0], blend)),
-    round(255*lerp(activePaletteA.background[1], activePaletteB.background[1], blend)),
-    round(255*lerp(activePaletteA.background[2], activePaletteB.background[2], blend))
+    round(255*lerp(activePaletteA.background[0], activePaletteB.background[0], ctl.blendAmount)),
+    round(255*lerp(activePaletteA.background[1], activePaletteB.background[1], ctl.blendAmount)),
+    round(255*lerp(activePaletteA.background[2], activePaletteB.background[2], ctl.blendAmount))
     );
 }
 
@@ -478,8 +362,8 @@ color getBGColor() {
 
 float[] getPaletteColor(int index) {
   return new float[]{
-    lerp(activePaletteA.pastels[index][0], activePaletteB.pastels[index][0], blend),
-    lerp(activePaletteA.pastels[index][1], activePaletteB.pastels[index][1], blend),
-    lerp(activePaletteA.pastels[index][2], activePaletteB.pastels[index][2], blend)
+    lerp(activePaletteA.pastels[index][0], activePaletteB.pastels[index][0], ctl.blendAmount),
+    lerp(activePaletteA.pastels[index][1], activePaletteB.pastels[index][1], ctl.blendAmount),
+    lerp(activePaletteA.pastels[index][2], activePaletteB.pastels[index][2], ctl.blendAmount)
   };
 }

@@ -8,26 +8,49 @@ precision mediump int;
 varying vec4 vertTexCoord;
 uniform sampler2D texture;
 uniform float u_alpha;
-uniform float u_centerX;
-uniform float u_centerY;
-uniform float u_feedbackZoom;
+uniform vec2 u_c_fb; // feedback center coords
+uniform vec2 u_c_rot; // rotation center coords
+uniform float u_feedbackZoom; // scale amount
+uniform float u_rotation;
 
-// //================================================================
+//================================================================
 
-vec2 zoom(vec2 coord, vec2 center, float factor){
-  return (coord - center) * factor + center;
+mat2 scale(vec2 _scale){
+  return mat2(
+    _scale.x, 0.0,
+    0.0, _scale.y
+  );
 }
 
-// //================================================================
+//================================================================
+// pulled from the book of shaders
+// https://thebookofshaders.com/08/
+
+mat2 rotate2d(float _angle){
+  return mat2(
+    cos(_angle), -sin(_angle),
+    sin(_angle), cos(_angle)
+  );
+}
+
+//================================================================
 
 void main ()
 {
     // Sample the input pixel
-    vec2 p = vertTexCoord.st;
-    vec2 feedbackZoomCenter = vec2(u_centerX, u_centerY);
-    vec2 zoomed = zoom(p, feedbackZoomCenter, u_feedbackZoom);
-    vec4 color = texture2D(texture, zoomed).rgba;
-    color.a = u_alpha;
+    vec2 st = vertTexCoord.st;
 
-    gl_FragColor    = color;
+    //apply rotation matrix to st coords
+    st -= u_c_rot;
+    st *= rotate2d(u_rotation);
+    st += u_c_rot;
+
+    //apply scale matrix to st coords
+    st -= u_c_fb;
+    st *= scale(vec2(u_feedbackZoom,u_feedbackZoom));
+    st += u_c_fb;
+
+    vec4 color = texture2D(texture, st).rgba;
+    color.a = u_alpha;
+    gl_FragColor = color;
 }

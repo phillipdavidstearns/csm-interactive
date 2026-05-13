@@ -92,6 +92,9 @@ class Mass {
 }
 
 //================================================================
+// Wind is used to push the origin Mass arround so that the linked
+// feedback offsets are constantly drifting off-center
+
 
 class Wind {
   float zOffset = random(-30, 30);
@@ -131,4 +134,82 @@ PVector accumulatedWind = new PVector();
 
 void accumulateWind(PVector wind) {
   accumulatedWind = accumulatedWind.add(wind);
+}
+
+//================================================================
+
+class Control {
+
+  int beatBlend = 0;
+  int triggerBlendOnBeat = 256;
+  int beatSortMode = 0;
+  int triggerSortMode = 64;
+  int frame = 0;
+  int triggerBlend = 27000; // 15 minutes
+  int blendDuration = 300; // 10 second transition
+  float blendAmount = 0.0;
+  boolean blendFlag = false;
+  boolean sortFlag = false;
+  int blendProgress = 0;
+
+  Control(int triggerBlend, int blendDuration, int triggerBlendOnBeat, int triggerSortMode) {
+    this.triggerBlend = triggerBlend; // trigger blend transition when frames reaches this value
+    this.blendDuration = blendDuration; // duration of transition in frames
+    this.triggerBlendOnBeat = triggerBlendOnBeat; // trigger transition when this many beats have been counted
+    this.triggerSortMode = triggerSortMode; // randomize sort parameters after this many beats
+  }
+
+  //----------------------------------------------------------------
+  // used for beat detection triggering
+  void bonk() {
+    // count beats so long as transitions aren't happening
+    if (!this.blendFlag) {
+      beatBlend ++;
+    }
+
+    // always count towards sortMode changes
+    beatSortMode ++;
+
+    if (beatSortMode >= triggerSortMode) {
+      randomizeSort();
+      beatSortMode = 0;
+    }
+  }
+
+  //----------------------------------------------------------------
+  void update() {
+    // a timed trigger for initiating blends between palettes
+    if (!this.blendFlag && this.frame >= triggerBlend || this.beatBlend >= triggerBlendOnBeat) {
+      this.beatBlend = 0;
+      this.frame = 0;
+      this.blendFlag = true;
+    } else if (this.blendFlag) {
+      this. updateBlend();
+    } else {
+      this.frame += 1;
+    }
+  }
+
+  //----------------------------------------------------------------
+  void updateBlend() {
+    if (this.blendProgress < this.blendDuration) {
+      this.blendProgress += 1;
+    } else {
+      this.blendFlag = false;
+      this.sortFlag = false;
+      this.blendProgress = 0;
+    }
+
+    // Always update the blend amount
+    this.blendAmount = doubleExponentialSigmoid(
+      this.blendProgress / float(this.blendDuration),
+      0.8
+      );
+
+    // randomize the sort parameters for the next palette right in the middle of the transition
+    if (this.blendAmount >= 0.5 && !this.sortFlag) {
+      randomizeSort();
+      this.sortFlag = true;
+    }
+  }
 }

@@ -36,7 +36,11 @@ RadioButton sortModeRadio;
 Numberbox sort_min;
 Numberbox sort_max;
 
+Slider sortCenter;
+Slider sortWidth;
+
 controlP5.Label label;
+Toggle reverseSortToggle;
 
 //================================================================
 // ControlFrame for controls in separate window.
@@ -69,8 +73,7 @@ class ControlFrame extends PApplet {
     cp5 = new ControlP5(this);
     setupControls(this.parent, this.cp5);
 
-    sortModeRadio.activate(4);
-    sort_mode(4);
+    randomizeSort();
   }
 
   void draw() {
@@ -107,25 +110,25 @@ void setupControls(PApplet parent, ControlP5 cp5) {
 
   //----------------------------------------------------------------
 
-  cp5.addSlider("sort_c")
+  sortCenter = cp5.addSlider("sort_c")
     .plugTo(parent, "sort_c")
     .setPosition(grid_x(0), grid_y(0))
     .setSize(size_w(8), size_h(1))
     .setRange(0, 1.0)
     .setValue(0.5)
     ;
-  cp5.getController("sort_c").getCaptionLabel()
+  sortCenter.getCaptionLabel()
     .align(ControlP5.RIGHT, CENTER)
     ;
 
-  cp5.addSlider("sort_w")
+  sortWidth = cp5.addSlider("sort_w")
     .plugTo(parent, "sort_w")
     .setPosition(grid_x(0), grid_y(1))
     .setSize(size_w(8), size_h(1))
     .setRange(0, 1.0)
     .setValue(0.3)
     ;
-  cp5.getController("sort_w").getCaptionLabel()
+  sortWidth.getCaptionLabel()
     .align(ControlP5.RIGHT, CENTER)
     ;
 
@@ -159,7 +162,7 @@ void setupControls(PApplet parent, ControlP5 cp5) {
     ;
 
   //reverse the sort order
-  cp5.addToggle("reverse")
+  reverseSortToggle = cp5.addToggle("reverse")
     .plugTo(parent, "reverseSort")
     .setValue(reverseSort)
     .setSize(size_w(1), size_h(1))
@@ -222,7 +225,7 @@ void setupControls(PApplet parent, ControlP5 cp5) {
     .setPosition(grid_x(0), grid_y(5))
     .setSize(size_w(8), size_h(1))
     .setRange(0, 1.0)
-    .setValue(0.1)
+    .setValue(0.05)
     ;
   cp5.getController("alpha_center").getCaptionLabel()
     .align(ControlP5.RIGHT, CENTER)
@@ -233,46 +236,9 @@ void setupControls(PApplet parent, ControlP5 cp5) {
     .setPosition(grid_x(0), grid_y(6))
     .setSize(size_w(8), size_h(1))
     .setRange(0, 1.0)
-    .setValue(0.1)
+    .setValue(0.15)
     ;
   cp5.getController("alpha_width").getCaptionLabel()
-    .align(ControlP5.RIGHT, CENTER)
-    ;
-
-  //----------------------------------------------------------------
-
-  //cp5.addSlider("noise_zoom")
-  //  .plugTo(parent, "noiseZoomFactor")
-  //  .setPosition(grid_x(0), grid_y(7))
-  //  .setSize(size_w(8), size_h(1))
-  //  .setRange(-5.0, 5.0)
-  //  .setValue(5.0)
-  //  ;
-  //cp5.getController("noise_zoom").getCaptionLabel()
-  //  .align(ControlP5.RIGHT, CENTER)
-  //  ;
-
-  //----------------------------------------------------------------
-
-  cp5.addSlider("wind_min")
-    .plugTo(parent, "windMin")
-    .setPosition(grid_x(0), grid_y(8))
-    .setSize(size_w(8), size_h(1))
-    .setRange(0.0, 1.0)
-    .setValue(0.25)
-    ;
-  cp5.getController("wind_min").getCaptionLabel()
-    .align(ControlP5.RIGHT, CENTER)
-    ;
-
-  cp5.addSlider("wind_max")
-    .plugTo(parent, "windMax")
-    .setPosition(grid_x(0), grid_y(9))
-    .setSize(size_w(8), size_h(1))
-    .setRange(0.0, 1.0)
-    .setValue(0.75)
-    ;
-  cp5.getController("wind_max").getCaptionLabel()
     .align(ControlP5.RIGHT, CENTER)
     ;
 
@@ -283,7 +249,7 @@ void setupControls(PApplet parent, ControlP5 cp5) {
     .setPosition(grid_x(0), grid_y(10))
     .setSize(size_w(8), size_h(1))
     .setRange(0.0, 1.0)
-    .setValue(0.20)
+    .setValue(0.05)
     ;
   cp5.getController("darken_amount").getCaptionLabel()
     .align(ControlP5.RIGHT, CENTER)
@@ -294,7 +260,7 @@ void setupControls(PApplet parent, ControlP5 cp5) {
     .setPosition(grid_x(0), grid_y(11))
     .setSize(size_w(8), size_h(1))
     .setRange(0.0, 1.0)
-    .setValue(0.20)
+    .setValue(0.10)
     ;
   cp5.getController("brighten_amount").getCaptionLabel()
     .align(ControlP5.RIGHT, CENTER)
@@ -312,21 +278,91 @@ void setupControls(PApplet parent, ControlP5 cp5) {
   cp5.getController("fbm_warp").getCaptionLabel()
     .align(ControlP5.RIGHT, CENTER)
     ;
+
+  //----------------------------------------------------------------
+
+  cp5.addSlider("brightness_amount")
+    .plugTo(parent, "bri")
+    .setPosition(grid_x(0), grid_y(14))
+    .setSize(size_w(8), size_h(1))
+    .setRange(0.0, 3.0)
+    .setValue(0.95)
+    ;
+  cp5.getController("brightness_amount").getCaptionLabel()
+    .align(ControlP5.RIGHT, CENTER)
+    ;
+
+  cp5.addSlider("contrast_amount")
+    .plugTo(parent, "con")
+    .setPosition(grid_x(0), grid_y(15))
+    .setSize(size_w(8), size_h(1))
+    .setRange(0.0, 3.0)
+    .setValue(1.05)
+    ;
+  cp5.getController("contrast_amount").getCaptionLabel()
+    .align(ControlP5.RIGHT, CENTER)
+    ;
+
+  cp5.addSlider("saturation_amount")
+    .plugTo(parent, "sat")
+    .setPosition(grid_x(0), grid_y(16))
+    .setSize(size_w(8), size_h(1))
+    .setRange(0.0, 3.0)
+    .setValue(0.95)
+    ;
+  cp5.getController("saturation_amount").getCaptionLabel()
+    .align(ControlP5.RIGHT, CENTER)
+    ;
+
+  //--------
+
+  //cp5.addSlider("feedback_alpha")
+  //  .plugTo(parent, "feedbackAlpha")
+  //  .setPosition(grid_x(0), grid_y(18))
+  //  .setSize(size_w(8), size_h(1))
+  //  .setRange(0.0, 1.0)
+  //  .setValue(1.0)
+  //  ;
+  //cp5.getController("feedback_alpha").getCaptionLabel()
+  //  .align(ControlP5.RIGHT, CENTER)
+  //  ;
+
+  //cp5.addSlider("feedback_rotation")
+  //  .plugTo(parent, "feedbackRotation")
+  //  .setPosition(grid_x(0), grid_y(19))
+  //  .setSize(size_w(8), size_h(1))
+  //  .setRange(-PI, PI)
+  //  .setValue(0.0)
+  //  ;
+  //cp5.getController("feedback_rotation").getCaptionLabel()
+  //  .align(ControlP5.RIGHT, CENTER)
+  //  ;
+
+  //cp5.addSlider("feedback_zoom")
+  //  .plugTo(parent, "feedbackZoom")
+  //  .setPosition(grid_x(0), grid_y(20))
+  //  .setSize(size_w(8), size_h(1))
+  //  .setRange(0.95, 1.05)
+  //  .setValue(1.01)
+  //  ;
+  //cp5.getController("feedback_zoom").getCaptionLabel()
+  //  .align(ControlP5.RIGHT, CENTER)
+  //  ;
 }
 
 void sort_c(float value) {
   thCenter = value;
   updateThresholds();
-  sort_min.setValue(thMin);
-  sort_max.setValue(thMax);
+  //sort_min.setValue(thMin);
+  //sort_max.setValue(thMax);
   //println("thCenter: " + thCenter + ", thWidth: " + thWidth + ", thMin: " + thMin + ", thMax: " + thMax);
 }
 
 void sort_w(float value) {
   thWidth = value;
   updateThresholds();
-  sort_min.setValue(thMin);
-  sort_max.setValue(thMax);
+  //sort_min.setValue(thMin);
+  //sort_max.setValue(thMax);
   //println("thCenter: " + thCenter + ", thWidth: " + thWidth + ", thMin: " + thMin + ", thMax: " + thMax);
 }
 
