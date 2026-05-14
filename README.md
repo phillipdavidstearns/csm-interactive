@@ -1,6 +1,13 @@
 # CSM Interactive
 
+## Quick Links
+
+1. [Operating Instructions](#operation)
+1. [Troubleshooting](#iroubleshooting)
+
 ## Overview
+
+### Components
 
 The installation consists of the following main components:
 
@@ -59,7 +66,19 @@ NOTE: Power to the installation should not be interrupted.
 
 ## Troubleshooting
 
-If the projected image is blank/black or the projector can't seem to find signal on HDMI 1 **hint**. Here are some things for you to keep in mind and check in the meantime:
+### Cursor Visible?
+
+There's a keyboard kept with the projector remote with the following instructions written on a post-it note taped to the back:
+
+1. Turn on the keyboard.
+1. Press spacebar until it is connected (indicated on screen).
+1. Press and hold `command` + press `tab` until "Interactive" is selected.
+1. Cursor should be gone!
+1. Turn off the keyboard.
+
+### Blank Screen?
+
+After turning on the projector, if the projected image is blank/black or the projector can't seem to find signal on HDMI 1 **hint**. Here are some things for you to keep in mind and check in the meantime:
 
 1. A blank screen indicates that the projector is getting signal. Something might be wrong with the Application. You may need to get a hold of me, Phil.
 1. No Signal indicates that the projector is just not getting anything:
