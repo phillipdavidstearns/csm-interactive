@@ -55,9 +55,9 @@ Every 256 beat detection events, a transition between color palettes is initiate
 	* If the projector fails to find signal, the Mac Mini will need to be checked for power. Please refer to the [troubleshooting](#troubleshooting) section below
 * TURN OFF at the end of the day by powering OFF the projector using its remote.
 
-NOTE:Power to the installation should not be interrupted.
+NOTE: Power to the installation should not be interrupted.
 
-## Troublshooting
+## Troubleshooting
 
 If the projected image is blank/black or the projector can't seem to find signal on HDMI 1 **hint**. Here are some things for you to keep in mind and check in the meantime:
 
