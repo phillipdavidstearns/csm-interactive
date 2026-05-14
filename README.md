@@ -3,7 +3,7 @@
 ## Quick Links
 
 1. [Operating Instructions](#operation)
-1. [Troubleshooting](#iroubleshooting)
+1. [Troubleshooting](#troubleshooting)
 
 ## Overview
 
